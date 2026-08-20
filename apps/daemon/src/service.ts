@@ -1,14 +1,10 @@
-import { access, stat } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import { isAbsolute, resolve } from "node:path";
 import type {
   CaptureResult,
-  CreatePlanInput,
+  CreateProjectInput,
   CreateTodoInput,
   Overview,
-  Plan,
+  Project,
   Todo,
   TodoRun,
   TodoStatus,
@@ -16,54 +12,47 @@ import type {
 import { countByStatus } from "@whomi/shared";
 import { CAPTURE_MODEL, EXECUTION_MODEL } from "./config.js";
 import { CodexAppServer } from "./app-server.js";
-import { PlanDatabase } from "./database.js";
+import { WhomiDatabase } from "./database.js";
 import { CodexProjectCatalog, type ProjectCatalog } from "./projects.js";
 
 const CAPTURE_SCHEMA = {
   type: "object",
   properties: {
     todos: {
-      type: "array",
-      minItems: 1,
-      maxItems: 8,
+      type: "array", minItems: 1, maxItems: 8,
       items: {
         type: "object",
-        properties: {
-          title: { type: "string" },
-          description: { type: "string" },
-        },
-        required: ["title", "description"],
-        additionalProperties: false,
+        properties: { title: { type: "string" }, description: { type: "string" } },
+        required: ["title", "description"], additionalProperties: false,
       },
     },
   },
-  required: ["todos"],
-  additionalProperties: false,
+  required: ["todos"], additionalProperties: false,
 };
-
-const execFileAsync = promisify(execFile);
 
 function requireText(value: unknown, name: string): string {
   if (typeof value !== "string" || !value.trim()) throw new Error(`${name} is required`);
   return value.trim();
 }
 
-export class PlanService {
+export class WhomiService {
+  private readonly dispatchers = new Map<string, Promise<void>>();
+
   constructor(
-    readonly database = new PlanDatabase(),
+    readonly database = new WhomiDatabase(),
     readonly codex = new CodexAppServer(),
-    readonly projects: ProjectCatalog = new CodexProjectCatalog(),
+    readonly projectCatalog: ProjectCatalog = new CodexProjectCatalog(),
   ) {}
 
-  async overview(planId?: string): Promise<Overview> {
-    const todos = this.database.listTodos(planId, true);
+  async overview(projectId?: string): Promise<Overview> {
+    const todos = this.database.listTodos(projectId, true);
     const [codexProjects, codexAvailable, codexThreads] = await Promise.all([
-      this.projects.list(),
+      this.projectCatalog.list(),
       this.codex.available(),
       this.codex.listThreads().catch(() => []),
     ]);
     return {
-      plans: this.database.listPlans(),
+      projects: this.database.listProjects(),
       codexProjects,
       codexThreads,
       todos,
@@ -76,30 +65,33 @@ export class PlanService {
     };
   }
 
-  listPlans(): Plan[] {
-    return this.database.listPlans();
+  listProjects(): Project[] { return this.database.listProjects(); }
+  listCodexProjects() { return this.projectCatalog.list(); }
+
+  getProject(id: string): Project {
+    const project = this.database.getProject(id);
+    if (!project) throw new Error("Project not found");
+    return project;
   }
 
-  listCodexProjects() {
-    return this.projects.list();
+  createProject(input: CreateProjectInput): Project {
+    const normalized: CreateProjectInput = {
+      ...input,
+      name: requireText(input.name, "name"),
+      rootPath: requireText(input.rootPath, "rootPath"),
+    };
+    return this.database.createProject(randomUUID(), normalized);
   }
 
-  createPlan(input: CreatePlanInput): Plan {
-    requireText(input.name, "name");
-    requireText(input.projectName, "projectName");
-    requireText(input.projectRoot, "projectRoot");
-    requireText(input.branch, "branch");
-    return this.database.createPlan(randomUUID(), input);
+  updateProject(id: string, input: Partial<CreateProjectInput>): Project {
+    const project = this.database.updateProject(id, input);
+    if (!project) throw new Error("Project not found");
+    if (project.autoDispatch) this.kick(project.id);
+    return project;
   }
 
-  updatePlan(id: string, input: Partial<CreatePlanInput>): Plan {
-    const plan = this.database.updatePlan(id, input);
-    if (!plan) throw new Error("Plan not found");
-    return plan;
-  }
-
-  listTodos(planId?: string | null, includeEnded = true): Todo[] {
-    return this.database.listTodos(planId, includeEnded);
+  listTodos(projectId?: string | null, includeArchived = true): Todo[] {
+    return this.database.listTodos(projectId, includeArchived);
   }
 
   getTodo(id: string): Todo {
@@ -108,283 +100,167 @@ export class PlanService {
     return todo;
   }
 
-  createTodo(input: CreateTodoInput): Todo {
-    requireText(input.title, "title");
-    if (input.status === "queued" && !input.planId) {
-      throw new Error("Queued todos must be assigned to a Plan");
-    }
-    if (input.planId && !this.database.getPlan(input.planId)) throw new Error("Plan not found");
-    return this.database.createTodo(randomUUID(), input);
+  addTodo(input: CreateTodoInput & { projectName?: string | null }): { todo: Todo; dispatchStarted: boolean } {
+    const projectId = this.resolveProject(input.projectId, input.projectName);
+    const status = input.status ?? "draft";
+    if (status === "ready" && !projectId) throw new Error("Ready todos must belong to a Project");
+    const todo = this.database.createTodo(randomUUID(), {
+      ...input,
+      title: requireText(input.title, "title"),
+      projectId,
+      status,
+    });
+    const dispatchStarted = status === "ready" && Boolean(projectId && this.getProject(projectId).autoDispatch);
+    if (dispatchStarted && projectId) this.kick(projectId);
+    return { todo, dispatchStarted };
   }
 
-  setStatus(id: string, status: TodoStatus, planId?: string | null): Todo {
+  createTodo(input: CreateTodoInput): Todo {
+    return this.addTodo(input).todo;
+  }
+
+  private resolveProject(projectId?: string | null, projectName?: string | null): string | null {
+    if (projectId) return this.getProject(projectId).id;
+    if (!projectName?.trim()) return null;
+    const project = this.database.findProjectByName(projectName.trim());
+    if (!project) throw new Error(`Project not found: ${projectName.trim()}`);
+    return project.id;
+  }
+
+  setStatus(id: string, status: TodoStatus, projectId?: string | null): Todo {
     const current = this.getTodo(id);
-    if (status === "completed") {
-      throw new Error("Use complete_todo so completion includes threadId and turnId");
+    const targetProjectId = projectId === undefined ? current.projectId : projectId;
+    if (["ready", "sending", "running"].includes(status) && !targetProjectId) {
+      throw new Error(`${status} todos must belong to a Project`);
     }
-    const targetPlanId = planId === undefined ? current.planId : planId;
-    if ((status === "queued" || status === "running") && !targetPlanId) {
-      throw new Error(`${status} todos must be assigned to a Plan`);
+    if (status === "sending" || status === "running") {
+      throw new Error("sending and running are managed by the dispatcher");
     }
-    const todo = this.database.updateTodoStatus(id, status, planId);
+    const todo = this.database.updateTodoStatus(id, status, projectId);
     if (!todo) throw new Error("Todo not found");
+    if (status === "ready" && todo.projectId && this.getProject(todo.projectId).autoDispatch) this.kick(todo.projectId);
     return todo;
   }
 
-  async capture(text: string, imagePath?: string | null, planId?: string | null): Promise<CaptureResult> {
+  async capture(text: string, imagePath?: string | null, projectId?: string | null): Promise<CaptureResult> {
     if (!text.trim() && !imagePath) throw new Error("Text or screenshot is required");
-    if (planId && !this.database.getPlan(planId)) throw new Error("Plan not found");
-
+    if (projectId) this.getProject(projectId);
     try {
       let threadId = this.database.getSetting("controller_thread_id");
       if (!threadId) {
-        threadId = await this.codex.startThread({
-          model: CAPTURE_MODEL,
-          approvalPolicy: "never",
-          sandbox: "read-only",
-          serviceName: "whomi_capture",
-        });
+        threadId = await this.codex.startThread({ model: CAPTURE_MODEL, approvalPolicy: "never", sandbox: "read-only", serviceName: "whomi_capture" });
         this.database.setSetting("controller_thread_id", threadId);
-        await this.codex.request("thread/name/set", { threadId, name: "Plan Inbox" });
+        await this.codex.request("thread/name/set", { threadId, name: "whomi Inbox" });
       } else {
         await this.codex.resumeThread(threadId);
-        await this.codex.request("thread/name/set", { threadId, name: "Plan Inbox" });
       }
-
-      const input: JsonInput[] = [
-        {
-          type: "text",
-          text: `把下面的内容提炼为可以直接执行的 Todo。标题要短，描述保留验收条件；不要臆造项目或截止时间。\n\n${text.trim()}`,
-        },
-      ];
+      const input: JsonInput[] = [{ type: "text", text: `把下面的内容提炼为可以直接执行的 Todo。标题要短，描述保留验收条件；不要臆造项目或截止时间。\n\n${text.trim()}` }];
       if (imagePath) input.push({ type: "localImage", path: imagePath });
-      const turnId = await this.codex.startTurn({
-        threadId,
-        input,
-        model: CAPTURE_MODEL,
-        effort: "low",
-        outputSchema: CAPTURE_SCHEMA,
-      });
+      const turnId = await this.codex.startTurn({ threadId, input, model: CAPTURE_MODEL, effort: "low", outputSchema: CAPTURE_SCHEMA });
       const result = await this.codex.waitForTurn(turnId);
       if (result.status !== "completed") throw new Error(result.error ?? `Capture turn ${result.status}`);
       const parsed = JSON.parse(result.text) as { todos: Array<{ title: string; description: string }> };
-      const todos = parsed.todos.map((candidate) =>
-        this.createTodo({
-          title: candidate.title,
-          description: candidate.description,
-          planId: planId ?? null,
-          status: planId ? "queued" : "someday",
-          sourceType: imagePath ? "screenshot" : "text",
-          sourcePath: imagePath ?? null,
-        }),
-      );
-      return { todos, threadId, turnId, usedModel: true };
-    } catch (error) {
-      const title = text.trim().split(/\r?\n/).find(Boolean)?.replace(/^[-*\d.)\s]+/, "").slice(0, 100)
-        || "从截图整理任务";
-      const todo = this.createTodo({
-        title,
-        description: text.trim(),
-        planId: planId ?? null,
-        status: planId ? "queued" : "someday",
+      const todos = parsed.todos.map((candidate) => this.addTodo({
+        title: candidate.title,
+        description: candidate.description,
+        projectId: projectId ?? null,
+        status: "draft",
         sourceType: imagePath ? "screenshot" : "text",
         sourcePath: imagePath ?? null,
-      });
+      }).todo);
+      return { todos, threadId, turnId, usedModel: true };
+    } catch (error) {
+      const title = text.trim().split(/\r?\n/).find(Boolean)?.replace(/^[-*\d.)\s]+/, "").slice(0, 100) || "从截图整理任务";
+      const todo = this.addTodo({ title, description: text.trim(), projectId: projectId ?? null, status: "draft", sourceType: imagePath ? "screenshot" : "text", sourcePath: imagePath ?? null }).todo;
       return {
-        todos: [todo],
-        threadId: this.database.getSetting("controller_thread_id"),
-        turnId: null,
-        usedModel: false,
+        todos: [todo], threadId: this.database.getSetting("controller_thread_id"), turnId: null, usedModel: false,
         warning: `轻模型不可用，已按原文创建：${error instanceof Error ? error.message : String(error)}`,
       };
     }
   }
 
-  async launch(id: string): Promise<{ todo: Todo; plan: Plan; run: TodoRun }> {
-    const todo = this.getTodo(id);
-    if (!todo.planId) throw new Error("Assign the todo to a Plan before launch");
-    let plan = this.database.getPlan(todo.planId);
-    if (!plan) throw new Error("Plan not found");
-    const cwd = plan.worktreePath || plan.projectRoot;
-    await access(cwd);
+  startProjectQueue(projectId: string): { project: Project; started: boolean } {
+    const project = this.getProject(projectId);
+    const started = !this.dispatchers.has(projectId);
+    this.kick(projectId);
+    return { project, started };
+  }
 
-    let threadId = plan.threadId;
+  retryTodo(id: string): Todo {
+    const todo = this.getTodo(id);
+    if (todo.status !== "failed") throw new Error("Only failed Todos can be retried");
+    return this.setStatus(id, "ready");
+  }
+
+  private kick(projectId: string): void {
+    if (this.dispatchers.has(projectId)) return;
+    const task = this.runQueue(projectId).finally(() => this.dispatchers.delete(projectId));
+    this.dispatchers.set(projectId, task);
+    void task;
+  }
+
+  private async runQueue(projectId: string): Promise<void> {
+    while (true) {
+      const todo = this.database.claimNextReady(projectId);
+      if (!todo) return;
+      try {
+        const finished = await this.sendTodo(todo);
+        if (finished.status !== "completed") {
+          const message = finished.error ?? `Codex turn ${finished.status}`;
+          this.database.updateTodoStatus(todo.id, "failed", undefined, message);
+          return;
+        }
+        this.database.completeTodo(todo.id, finished.threadId, finished.turnId, finished.text);
+      } catch (error) {
+        this.database.updateTodoStatus(todo.id, "failed", undefined, error instanceof Error ? error.message : String(error));
+        return;
+      }
+    }
+  }
+
+  private async sendTodo(todo: Todo): Promise<{ status: "completed" | "failed" | "interrupted"; text: string; error: string | null; threadId: string; turnId: string }> {
+    if (!todo.projectId) throw new Error("Todo has no Project");
+    let project = this.getProject(todo.projectId);
+    let threadId = project.targetThreadId;
     if (!threadId) {
       threadId = await this.codex.startThread({
         model: EXECUTION_MODEL,
-        cwd,
+        cwd: project.rootPath,
         approvalPolicy: "never",
         sandbox: "workspace-write",
-        serviceName: "whomi_execution",
+        serviceName: "whomi_dispatch",
       });
-      await this.codex.request("thread/name/set", {
-        threadId,
-        name: `${plan.projectName} · ${plan.name}`,
-      });
-      plan = this.updatePlan(plan.id, { threadId });
+      await this.codex.request("thread/name/set", { threadId, name: project.name });
+      project = this.updateProject(project.id, { targetThreadId: threadId });
     } else {
       await this.codex.resumeThread(threadId);
     }
-
     const turnId = await this.codex.startTurn({
       threadId,
-      cwd,
+      cwd: project.rootPath,
       model: EXECUTION_MODEL,
       effort: "medium",
-      input: [
-        {
-          type: "text",
-          text: [
-            `执行 Plan「${plan.name}」中的 Todo：${todo.title}`,
-            todo.description ? `\n背景与验收条件：\n${todo.description}` : "",
-            "\n完成实现与必要验证。不要仅汇报计划；遇到真正需要用户选择的阻塞再询问。",
-          ].join(""),
-        },
-      ],
+      input: [{
+        type: "text",
+        text: [
+          `执行 whomi 项目「${project.name}」中的 Todo：${todo.title}`,
+          todo.description ? `\n背景与验收条件：\n${todo.description}` : "",
+          "\n请直接完成工作并做必要验证；真正需要用户选择时再询问。",
+        ].join(""),
+      }],
     });
-
     const run: TodoRun = {
-      id: randomUUID(),
-      todoId: todo.id,
-      planId: plan.id,
-      threadId,
-      turnId,
-      status: "running",
-      startedAt: new Date().toISOString(),
-      finishedAt: null,
-      error: null,
+      id: randomUUID(), todoId: todo.id, projectId: project.id, threadId, turnId,
+      status: "running", startedAt: new Date().toISOString(), finishedAt: null, error: null,
     };
     this.database.createRun(run);
-    const runningTodo = this.setStatus(todo.id, "running");
-    void this.codex.waitForTurn(turnId, 24 * 60 * 60 * 1000).then((snapshot) => {
-      this.database.updateRunByTurn(turnId, snapshot.status, snapshot.error);
-    }).catch((error) => {
-      this.database.updateRunByTurn(turnId, "failed", String(error));
-    });
-    return { todo: runningTodo, plan, run };
-  }
-
-  async prepareCurrentLaunch(id: string): Promise<{
-    todo: Todo;
-    plan: Plan;
-    cwd: string;
-    marker: string;
-    prompt: string;
-  }> {
-    const todo = this.getTodo(id);
-    if (todo.status !== "queued") throw new Error("Only queued Todos can be started");
-    if (!todo.planId) throw new Error("Assign the Todo to a Plan before starting it");
-    const plan = this.database.getPlan(todo.planId);
-    if (!plan) throw new Error("Plan not found");
-    if (!plan.threadId) {
-      throw new Error("Bind this Plan to the current Codex task before starting from the plugin UI");
-    }
-    const cwd = plan.worktreePath || plan.projectRoot;
-    const info = await stat(cwd);
-    if (!info.isDirectory()) throw new Error("Plan worktree path is not a directory");
-
-    const marker = `[whomi todo=${todo.id} run=${randomUUID()}]`;
-    const prompt = [
-      marker,
-      `请在当前 Codex task 中执行 Plan「${plan.name}」的 Todo「${todo.title}」。`,
-      `Todo ID：${todo.id}`,
-      `Plan ID：${plan.id}`,
-      `工作目录：${cwd}`,
-      `Git 分支：${plan.branch}`,
-      todo.description ? `背景与验收条件：\n${todo.description}` : "",
-      "开始实际修改前，调用 whomi 的 register_current_todo，传入上面的 Todo ID 和关联标记。它会把当前可见 turn 记为运行记录；如果提示 task 绑定不一致，请先告诉用户，不要另起 task。",
-      "随后直接完成实现和必要验证。不要只汇报计划；只有真正需要用户选择时再询问。不要猜测或伪造 taskId/turnId。",
-    ].filter(Boolean).join("\n\n");
-    return { todo, plan, cwd, marker, prompt };
-  }
-
-  async registerCurrentLaunch(id: string, marker: string): Promise<{
-    todo: Todo;
-    plan: Plan;
-    run: TodoRun;
-  }> {
-    const todo = this.getTodo(id);
-    if (!todo.planId) throw new Error("Assign the Todo to a Plan before starting it");
-    const plan = this.database.getPlan(todo.planId);
-    if (!plan) throw new Error("Plan not found");
-    if (!plan.threadId) throw new Error("Plan is not bound to a Codex task");
-    if (!marker.startsWith(`[whomi todo=${todo.id} run=`) || !marker.endsWith("]")) {
-      throw new Error("Invalid Todo execution marker");
-    }
-
-    const matchedTurn = await this.codex.findTurnContainingUserText(plan.threadId, marker);
-    if (!matchedTurn) {
-      throw new Error("The visible message was not found in the Plan-bound task; bind the Plan to the current task and try again");
-    }
-    const existingRun = this.database.getRunByTurn(matchedTurn.id);
-    if (existingRun) {
-      if (existingRun.todoId !== todo.id) throw new Error("This Codex turn is already linked to another Todo");
-      const currentTodo = todo.status === "queued" ? this.setStatus(todo.id, "running") : todo;
-      return { todo: currentTodo, plan, run: existingRun };
-    }
-    if (todo.status !== "queued" && todo.status !== "running") {
-      throw new Error("Todo is no longer queued or running");
-    }
-
-    const run: TodoRun = {
-      id: randomUUID(),
-      todoId: todo.id,
-      planId: plan.id,
-      threadId: plan.threadId,
-      turnId: matchedTurn.id,
-      status: "running",
-      startedAt: new Date().toISOString(),
-      finishedAt: null,
-      error: null,
-    };
-    this.database.createRun(run);
-    const runningTodo = todo.status === "running" ? todo : this.setStatus(todo.id, "running");
-    return { todo: runningTodo, plan, run };
-  }
-
-  complete(id: string, input: { threadId?: string; turnId?: string; summary?: string }): Todo {
-    const run = this.database.latestRun(id);
-    const threadId = input.threadId ?? run?.threadId;
-    const turnId = input.turnId ?? run?.turnId;
-    if (!threadId || !turnId) throw new Error("Completion requires threadId and turnId");
-    const todo = this.database.completeTodo(id, threadId, turnId, input.summary?.trim() ?? "");
-    if (!todo) throw new Error("Todo not found");
-    return todo;
-  }
-
-  async ensureWorktree(planId: string, baseRef = "HEAD"): Promise<Plan> {
-    const plan = this.database.getPlan(planId);
-    if (!plan) throw new Error("Plan not found");
-    const projectRoot = resolve(plan.projectRoot);
-    const worktreePath = resolve(plan.worktreePath || plan.projectRoot);
-    if (!isAbsolute(plan.projectRoot) || !isAbsolute(plan.worktreePath || plan.projectRoot)) {
-      throw new Error("Project root and worktree path must be absolute");
-    }
-    await access(projectRoot);
-    try {
-      const info = await stat(worktreePath);
-      if (!info.isDirectory()) throw new Error("Worktree path exists but is not a directory");
-      return plan;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-    }
-
-    await execFileAsync("git", ["-C", projectRoot, "check-ref-format", "--branch", plan.branch]);
-    let branchExists = true;
-    try {
-      await execFileAsync("git", ["-C", projectRoot, "show-ref", "--verify", "--quiet", `refs/heads/${plan.branch}`]);
-    } catch {
-      branchExists = false;
-    }
-    if (branchExists) {
-      await execFileAsync("git", ["-C", projectRoot, "worktree", "add", worktreePath, plan.branch]);
-    } else {
-      await execFileAsync("git", ["-C", projectRoot, "worktree", "add", "-b", plan.branch, worktreePath, baseRef]);
-    }
-    return this.updatePlan(plan.id, { worktreePath });
+    this.database.updateTodoStatus(todo.id, "running");
+    const result = await this.codex.waitForTurn(turnId, 24 * 60 * 60 * 1000);
+    this.database.updateRunByTurn(turnId, result.status, result.error);
+    return { ...result, threadId, turnId };
   }
 }
 
-type JsonInput =
-  | { type: "text"; text: string }
-  | { type: "localImage"; path: string };
+export { WhomiService as PlanService };
+
+type JsonInput = { type: "text"; text: string } | { type: "localImage"; path: string };

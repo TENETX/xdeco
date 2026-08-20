@@ -1,11 +1,7 @@
-import { execFile } from "node:child_process";
 import { readFile, stat } from "node:fs/promises";
 import { basename } from "node:path";
-import { promisify } from "node:util";
 import type { CodexProject } from "@whomi/shared";
 import { CODEX_GLOBAL_STATE_PATH } from "./config.js";
-
-const execFileAsync = promisify(execFile);
 
 interface StoredCodexProject {
   id?: unknown;
@@ -21,16 +17,6 @@ interface CodexGlobalState {
 
 export interface ProjectCatalog {
   list(): Promise<CodexProject[]>;
-}
-
-async function gitMetadata(rootPath: string): Promise<Pick<CodexProject, "branch" | "isGitRepository">> {
-  try {
-    await execFileAsync("git", ["-C", rootPath, "rev-parse", "--show-toplevel"]);
-    const { stdout } = await execFileAsync("git", ["-C", rootPath, "branch", "--show-current"]);
-    return { branch: stdout.trim() || "HEAD", isGitRepository: true };
-  } catch {
-    return { branch: null, isGitRepository: false };
-  }
 }
 
 async function readState(path: string): Promise<CodexGlobalState> {
@@ -88,6 +74,6 @@ export class CodexProjectCatalog implements ProjectCatalog {
     } catch {
       return null;
     }
-    return { id, name, rootPath, ...(await gitMetadata(rootPath)) };
+    return { id, name, rootPath };
   }
 }

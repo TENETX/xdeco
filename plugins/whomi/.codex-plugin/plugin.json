@@ -1,15 +1,15 @@
 {
   "name": "whomi",
-  "version": "0.1.0+codex.20260820084729",
-  "description": "Manage Todos across projects, Codex tasks, branches, and worktrees.",
+  "version": "0.2.0+codex.20260820172549",
+  "description": "Collect Todos by project and send ready work to Codex one item at a time.",
   "author": {
     "name": "whomi contributors"
   },
   "skills": "./skills/",
   "interface": {
     "displayName": "whomi",
-    "shortDescription": "Route Todos into project-bound Codex execution lanes.",
-    "longDescription": "Capture Todos from text or screenshots, organize them in six clear states, and launch queued work in the correct project, worktree, branch, and Codex task.",
+    "shortDescription": "Manage project Todo queues for Codex.",
+    "longDescription": "Capture Todos from any conversation, organize them by project, and send ready work to each project's Codex task sequentially.",
     "developerName": "whomi contributors",
     "category": "Productivity",
     "capabilities": [
@@ -17,9 +17,9 @@
       "Write"
     ],
     "defaultPrompt": [
-      "\u628a\u8fd9\u6bb5\u5185\u5bb9\u6574\u7406\u6210 Todo\uff0c\u5148\u653e\u5230\u4e0d\u6025\u3002",
-      "\u5217\u51fa\u8fd9\u4e2a Plan \u961f\u5217\u4e2d\u7684 Todo\u3002",
-      "\u542f\u52a8\u8fd9\u4e2a Todo\uff0c\u5e76\u5728\u5b8c\u6210\u65f6\u8bb0\u5f55\u5bf9\u5e94 turn\u3002"
+      "\u628a\u8fd9\u4ef6\u4e8b\u4f5c\u4e3a\u8349\u7a3f Todo \u52a0\u5230 whomi\u3002",
+      "\u628a\u8fd9\u4e2a Todo \u52a0\u5165\u9879\u76ee\u7684\u53d1\u9001\u961f\u5217\u3002",
+      "\u6253\u5f00 whomi\uff0c\u67e5\u770b\u6bcf\u4e2a\u9879\u76ee\u7684 Todo \u72b6\u6001\u3002"
     ],
     "brandColor": "#587143"
   },
