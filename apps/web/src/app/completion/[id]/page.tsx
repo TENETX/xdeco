@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { ArrowLeft, CheckCircle2, Copy, ExternalLink, GitBranch, MessageSquareCode } from "lucide-react";
-import type { Todo } from "@plan-orchestrator/shared";
+import type { Todo } from "@whomi/shared";
 
 export default function CompletionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);

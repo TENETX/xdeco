@@ -1,7 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface } from "node:readline";
 import { setTimeout as delay } from "node:timers/promises";
-import type { CodexThread } from "@plan-orchestrator/shared";
+import type { CodexThread } from "@whomi/shared";
 
 type JsonObject = Record<string, unknown>;
 
@@ -83,14 +83,14 @@ export class CodexAppServer {
       try {
         this.handle(JSON.parse(line) as JsonObject);
       } catch (error) {
-        process.stderr.write(`[plan-orchestrator] invalid app-server message: ${String(error)}\n`);
+        process.stderr.write(`[whomi] invalid app-server message: ${String(error)}\n`);
       }
     });
 
     await this.request("initialize", {
       clientInfo: {
-        name: "plan_orchestrator",
-        title: "Plan Orchestrator",
+        name: "whomi",
+        title: "whomi",
         version: "0.1.0",
       },
       capabilities: { experimentalApi: true },

@@ -12,8 +12,8 @@ import type {
   Todo,
   TodoRun,
   TodoStatus,
-} from "@plan-orchestrator/shared";
-import { countByStatus } from "@plan-orchestrator/shared";
+} from "@whomi/shared";
+import { countByStatus } from "@whomi/shared";
 import { CAPTURE_MODEL, EXECUTION_MODEL } from "./config.js";
 import { CodexAppServer } from "./app-server.js";
 import { PlanDatabase } from "./database.js";
@@ -142,7 +142,7 @@ export class PlanService {
           model: CAPTURE_MODEL,
           approvalPolicy: "never",
           sandbox: "read-only",
-          serviceName: "plan_orchestrator_capture",
+          serviceName: "whomi_capture",
         });
         this.database.setSetting("controller_thread_id", threadId);
         await this.codex.request("thread/name/set", { threadId, name: "Plan Inbox" });
@@ -215,7 +215,7 @@ export class PlanService {
         cwd,
         approvalPolicy: "never",
         sandbox: "workspace-write",
-        serviceName: "plan_orchestrator_execution",
+        serviceName: "whomi_execution",
       });
       await this.codex.request("thread/name/set", {
         threadId,
@@ -283,7 +283,7 @@ export class PlanService {
     const info = await stat(cwd);
     if (!info.isDirectory()) throw new Error("Plan worktree path is not a directory");
 
-    const marker = `[plan-orchestrator todo=${todo.id} run=${randomUUID()}]`;
+    const marker = `[whomi todo=${todo.id} run=${randomUUID()}]`;
     const prompt = [
       marker,
       `请在当前 Codex task 中执行 Plan「${plan.name}」的 Todo「${todo.title}」。`,
@@ -292,7 +292,7 @@ export class PlanService {
       `工作目录：${cwd}`,
       `Git 分支：${plan.branch}`,
       todo.description ? `背景与验收条件：\n${todo.description}` : "",
-      "开始实际修改前，调用 plan-orchestrator 的 register_current_todo，传入上面的 Todo ID 和关联标记。它会把当前可见 turn 记为运行记录；如果提示 task 绑定不一致，请先告诉用户，不要另起 task。",
+      "开始实际修改前，调用 whomi 的 register_current_todo，传入上面的 Todo ID 和关联标记。它会把当前可见 turn 记为运行记录；如果提示 task 绑定不一致，请先告诉用户，不要另起 task。",
       "随后直接完成实现和必要验证。不要只汇报计划；只有真正需要用户选择时再询问。不要猜测或伪造 taskId/turnId。",
     ].filter(Boolean).join("\n\n");
     return { todo, plan, cwd, marker, prompt };
@@ -308,7 +308,7 @@ export class PlanService {
     const plan = this.database.getPlan(todo.planId);
     if (!plan) throw new Error("Plan not found");
     if (!plan.threadId) throw new Error("Plan is not bound to a Codex task");
-    if (!marker.startsWith(`[plan-orchestrator todo=${todo.id} run=`) || !marker.endsWith("]")) {
+    if (!marker.startsWith(`[whomi todo=${todo.id} run=`) || !marker.endsWith("]")) {
       throw new Error("Invalid Todo execution marker");
     }
 

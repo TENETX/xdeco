@@ -31022,14 +31022,14 @@ function countByStatus(todos) {
 // apps/daemon/src/config.ts
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-var DAEMON_HOST = process.env.PLAN_ORCHESTRATOR_HOST ?? "127.0.0.1";
-var DAEMON_PORT = Number(process.env.PLAN_ORCHESTRATOR_PORT ?? 4317);
+var DAEMON_HOST = process.env.WHOMI_HOST ?? "127.0.0.1";
+var DAEMON_PORT = Number(process.env.WHOMI_PORT ?? 4317);
 var CODEX_HOME = process.env.CODEX_HOME ? resolve(process.env.CODEX_HOME) : join(homedir(), ".codex");
 var CODEX_GLOBAL_STATE_PATH = join(CODEX_HOME, ".codex-global-state.json");
-var DATA_DIR = process.env.PLAN_ORCHESTRATOR_DATA_DIR ? resolve(process.env.PLAN_ORCHESTRATOR_DATA_DIR) : join(CODEX_HOME, "plan-orchestrator");
-var DATABASE_PATH = process.env.PLAN_ORCHESTRATOR_DATABASE ? resolve(process.env.PLAN_ORCHESTRATOR_DATABASE) : join(DATA_DIR, "plan-orchestrator.sqlite");
-var CAPTURE_MODEL = process.env.PLAN_ORCHESTRATOR_CAPTURE_MODEL ?? "gpt-5.6-luna";
-var EXECUTION_MODEL = process.env.PLAN_ORCHESTRATOR_EXECUTION_MODEL ?? "gpt-5.6-terra";
+var DATA_DIR = process.env.WHOMI_DATA_DIR ? resolve(process.env.WHOMI_DATA_DIR) : join(CODEX_HOME, "whomi");
+var DATABASE_PATH = process.env.WHOMI_DATABASE ? resolve(process.env.WHOMI_DATABASE) : join(DATA_DIR, "whomi.sqlite");
+var CAPTURE_MODEL = process.env.WHOMI_CAPTURE_MODEL ?? "gpt-5.6-luna";
+var EXECUTION_MODEL = process.env.WHOMI_EXECUTION_MODEL ?? "gpt-5.6-terra";
 
 // apps/daemon/src/service.ts
 import { access, stat as stat2 } from "node:fs/promises";
@@ -31086,14 +31086,14 @@ var CodexAppServer = class {
       try {
         this.handle(JSON.parse(line));
       } catch (error51) {
-        process.stderr.write(`[plan-orchestrator] invalid app-server message: ${String(error51)}
+        process.stderr.write(`[whomi] invalid app-server message: ${String(error51)}
 `);
       }
     });
     await this.request("initialize", {
       clientInfo: {
-        name: "plan_orchestrator",
-        title: "Plan Orchestrator",
+        name: "whomi",
+        title: "whomi",
         version: "0.1.0"
       },
       capabilities: { experimentalApi: true }
@@ -31666,7 +31666,7 @@ var PlanService = class {
           model: CAPTURE_MODEL,
           approvalPolicy: "never",
           sandbox: "read-only",
-          serviceName: "plan_orchestrator_capture"
+          serviceName: "whomi_capture"
         });
         this.database.setSetting("controller_thread_id", threadId);
         await this.codex.request("thread/name/set", { threadId, name: "Plan Inbox" });
@@ -31737,7 +31737,7 @@ ${text.trim()}`
         cwd,
         approvalPolicy: "never",
         sandbox: "workspace-write",
-        serviceName: "plan_orchestrator_execution"
+        serviceName: "whomi_execution"
       });
       await this.codex.request("thread/name/set", {
         threadId,
@@ -31797,7 +31797,7 @@ ${todo.description}` : "",
     const cwd = plan.worktreePath || plan.projectRoot;
     const info = await stat2(cwd);
     if (!info.isDirectory()) throw new Error("Plan worktree path is not a directory");
-    const marker = `[plan-orchestrator todo=${todo.id} run=${randomUUID()}]`;
+    const marker = `[whomi todo=${todo.id} run=${randomUUID()}]`;
     const prompt = [
       marker,
       `\u8BF7\u5728\u5F53\u524D Codex task \u4E2D\u6267\u884C Plan\u300C${plan.name}\u300D\u7684 Todo\u300C${todo.title}\u300D\u3002`,
@@ -31807,7 +31807,7 @@ ${todo.description}` : "",
       `Git \u5206\u652F\uFF1A${plan.branch}`,
       todo.description ? `\u80CC\u666F\u4E0E\u9A8C\u6536\u6761\u4EF6\uFF1A
 ${todo.description}` : "",
-      "\u5F00\u59CB\u5B9E\u9645\u4FEE\u6539\u524D\uFF0C\u8C03\u7528 plan-orchestrator \u7684 register_current_todo\uFF0C\u4F20\u5165\u4E0A\u9762\u7684 Todo ID \u548C\u5173\u8054\u6807\u8BB0\u3002\u5B83\u4F1A\u628A\u5F53\u524D\u53EF\u89C1 turn \u8BB0\u4E3A\u8FD0\u884C\u8BB0\u5F55\uFF1B\u5982\u679C\u63D0\u793A task \u7ED1\u5B9A\u4E0D\u4E00\u81F4\uFF0C\u8BF7\u5148\u544A\u8BC9\u7528\u6237\uFF0C\u4E0D\u8981\u53E6\u8D77 task\u3002",
+      "\u5F00\u59CB\u5B9E\u9645\u4FEE\u6539\u524D\uFF0C\u8C03\u7528 whomi \u7684 register_current_todo\uFF0C\u4F20\u5165\u4E0A\u9762\u7684 Todo ID \u548C\u5173\u8054\u6807\u8BB0\u3002\u5B83\u4F1A\u628A\u5F53\u524D\u53EF\u89C1 turn \u8BB0\u4E3A\u8FD0\u884C\u8BB0\u5F55\uFF1B\u5982\u679C\u63D0\u793A task \u7ED1\u5B9A\u4E0D\u4E00\u81F4\uFF0C\u8BF7\u5148\u544A\u8BC9\u7528\u6237\uFF0C\u4E0D\u8981\u53E6\u8D77 task\u3002",
       "\u968F\u540E\u76F4\u63A5\u5B8C\u6210\u5B9E\u73B0\u548C\u5FC5\u8981\u9A8C\u8BC1\u3002\u4E0D\u8981\u53EA\u6C47\u62A5\u8BA1\u5212\uFF1B\u53EA\u6709\u771F\u6B63\u9700\u8981\u7528\u6237\u9009\u62E9\u65F6\u518D\u8BE2\u95EE\u3002\u4E0D\u8981\u731C\u6D4B\u6216\u4F2A\u9020 taskId/turnId\u3002"
     ].filter(Boolean).join("\n\n");
     return { todo, plan, cwd, marker, prompt };
@@ -31818,7 +31818,7 @@ ${todo.description}` : "",
     const plan = this.database.getPlan(todo.planId);
     if (!plan) throw new Error("Plan not found");
     if (!plan.threadId) throw new Error("Plan is not bound to a Codex task");
-    if (!marker.startsWith(`[plan-orchestrator todo=${todo.id} run=`) || !marker.endsWith("]")) {
+    if (!marker.startsWith(`[whomi todo=${todo.id} run=`) || !marker.endsWith("]")) {
       throw new Error("Invalid Todo execution marker");
     }
     const matchedTurn = await this.codex.findTurnContainingUserText(plan.threadId, marker);
@@ -31891,8 +31891,8 @@ ${todo.description}` : "",
 };
 
 // apps/daemon/src/widget.ts
-var PLAN_BOARD_URI = "ui://plan-orchestrator/plan-board-v1.html";
-var PLAN_BOARD_HTML = String.raw`<!doctype html>
+var WHOMI_URI = "ui://whomi/app-v1.html";
+var WHOMI_HTML = String.raw`<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
@@ -32387,7 +32387,7 @@ var PLAN_BOARD_HTML = String.raw`<!doctype html>
         <div class="mark" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="7" height="7" rx="2"/><rect x="14" y="4" width="7" height="7" rx="2"/><rect x="3" y="15" width="7" height="5" rx="2"/><rect x="14" y="15" width="7" height="5" rx="2"/></svg>
         </div>
-        <div class="title"><strong>Plan Orchestrator</strong><span id="subtitle">任务控制台</span></div>
+        <div class="title"><strong>whomi</strong><span id="subtitle">任务控制台</span></div>
         <div class="topActions">
           <button class="iconButton" id="refreshButton" type="button" aria-label="刷新" title="刷新">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
@@ -33048,7 +33048,7 @@ var PLAN_BOARD_HTML = String.raw`<!doctype html>
 
 // apps/daemon/src/mcp.ts
 var service = new PlanService();
-var server = new McpServer({ name: "plan-orchestrator", version: "0.1.0" });
+var server = new McpServer({ name: "whomi", version: "0.1.0" });
 var WIDGET_CALLABLE_META = {
   ui: { visibility: ["app"] },
   "openai/widgetAccessible": true
@@ -33083,15 +33083,15 @@ async function saveWidgetImage(file2) {
   await writeFile(path, bytes);
   return path;
 }
-server.registerResource("plan-board", PLAN_BOARD_URI, {}, async () => ({
+server.registerResource("whomi", WHOMI_URI, {}, async () => ({
   contents: [
     {
-      uri: PLAN_BOARD_URI,
+      uri: WHOMI_URI,
       mimeType: "text/html;profile=mcp-app",
-      text: PLAN_BOARD_HTML,
+      text: WHOMI_HTML,
       _meta: {
         ui: { prefersBorder: true },
-        "openai/widgetDescription": "A compact interactive Plan and Todo board with project, branch, worktree, task, and status controls.",
+        "openai/widgetDescription": "The compact interactive whomi workspace for Plans and Todos, with project, branch, worktree, task, and status controls.",
         "openai/widgetPrefersBorder": true
       }
     }
@@ -33110,19 +33110,19 @@ server.registerTool(
   async () => result(await service.overview())
 );
 server.registerTool(
-  "open_plan_board",
+  "open_whomi",
   {
-    title: "Open Plan Board",
-    description: "Render the interactive Plan Orchestrator UI. Use when the user asks to open, show, or manage the visual Plan/Todo board.",
+    title: "Open whomi",
+    description: "Render the interactive whomi UI. Use when the user asks to open, show, or manage their visual Plan/Todo workspace.",
     inputSchema: {},
     outputSchema: { result: external_exports.any() },
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     _meta: {
-      ui: { resourceUri: PLAN_BOARD_URI },
-      "openai/outputTemplate": PLAN_BOARD_URI,
+      ui: { resourceUri: WHOMI_URI },
+      "openai/outputTemplate": WHOMI_URI,
       "openai/widgetAccessible": true,
-      "openai/toolInvocation/invoking": "\u6B63\u5728\u6253\u5F00 Plan Board\u2026",
-      "openai/toolInvocation/invoked": "Plan Board \u5DF2\u6253\u5F00"
+      "openai/toolInvocation/invoking": "\u6B63\u5728\u6253\u5F00 whomi\u2026",
+      "openai/toolInvocation/invoked": "whomi \u5DF2\u6253\u5F00"
     }
   },
   async () => result(await service.overview())

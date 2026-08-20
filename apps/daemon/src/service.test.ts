@@ -103,7 +103,7 @@ test("current-task launch prepares a visible prompt without mutating Todo state"
 
     const prepared = await service.prepareCurrentLaunch(todo.id);
     assert.equal(prepared.cwd, projectRoot);
-    assert.match(prepared.marker, new RegExp(`^\\[plan-orchestrator todo=${todo.id} run=`));
+    assert.match(prepared.marker, new RegExp(`^\\[whomi todo=${todo.id} run=`));
     assert.match(prepared.prompt, /register_current_todo/);
     assert.match(prepared.prompt, /当前 Codex task/);
     assert.equal(service.getTodo(todo.id).status, "queued");
@@ -120,7 +120,7 @@ test("registering a current-task launch stores the matched visible turn", async 
     available: async () => true,
     findTurnContainingUserText: async (threadId: string, marker: string) => {
       assert.equal(threadId, "thread_visible");
-      assert.match(marker, /plan-orchestrator/);
+      assert.match(marker, /whomi/);
       return { id: "turn_visible", status: "inProgress" };
     },
   } as any;
@@ -134,7 +134,7 @@ test("registering a current-task launch stores the matched visible turn", async 
       threadId: "thread_visible",
     });
     const todo = service.createTodo({ title: "ship", status: "queued", planId: plan.id });
-    const marker = `[plan-orchestrator todo=${todo.id} run=run_visible]`;
+    const marker = `[whomi todo=${todo.id} run=run_visible]`;
 
     const registered = await service.registerCurrentLaunch(todo.id, marker);
     assert.equal(registered.todo.status, "running");

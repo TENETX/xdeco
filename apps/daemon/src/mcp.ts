@@ -4,13 +4,13 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import { TODO_STATUSES } from "@plan-orchestrator/shared";
+import { TODO_STATUSES } from "@whomi/shared";
 import { DATA_DIR } from "./config.js";
 import { PlanService } from "./service.js";
-import { PLAN_BOARD_HTML, PLAN_BOARD_URI } from "./widget.js";
+import { WHOMI_HTML, WHOMI_URI } from "./widget.js";
 
 const service = new PlanService();
-const server = new McpServer({ name: "plan-orchestrator", version: "0.1.0" });
+const server = new McpServer({ name: "whomi", version: "0.1.0" });
 const WIDGET_CALLABLE_META = {
   ui: { visibility: ["app"] },
   "openai/widgetAccessible": true,
@@ -49,15 +49,15 @@ async function saveWidgetImage(file: z.infer<typeof widgetFileSchema>): Promise<
   return path;
 }
 
-server.registerResource("plan-board", PLAN_BOARD_URI, {}, async () => ({
+server.registerResource("whomi", WHOMI_URI, {}, async () => ({
   contents: [
     {
-      uri: PLAN_BOARD_URI,
+      uri: WHOMI_URI,
       mimeType: "text/html;profile=mcp-app",
-      text: PLAN_BOARD_HTML,
+      text: WHOMI_HTML,
       _meta: {
         ui: { prefersBorder: true },
-        "openai/widgetDescription": "A compact interactive Plan and Todo board with project, branch, worktree, task, and status controls.",
+        "openai/widgetDescription": "The compact interactive whomi workspace for Plans and Todos, with project, branch, worktree, task, and status controls.",
         "openai/widgetPrefersBorder": true,
       },
     },
@@ -78,19 +78,19 @@ server.registerTool(
 );
 
 server.registerTool(
-  "open_plan_board",
+  "open_whomi",
   {
-    title: "Open Plan Board",
-    description: "Render the interactive Plan Orchestrator UI. Use when the user asks to open, show, or manage the visual Plan/Todo board.",
+    title: "Open whomi",
+    description: "Render the interactive whomi UI. Use when the user asks to open, show, or manage their visual Plan/Todo workspace.",
     inputSchema: {},
     outputSchema: { result: z.any() },
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     _meta: {
-      ui: { resourceUri: PLAN_BOARD_URI },
-      "openai/outputTemplate": PLAN_BOARD_URI,
+      ui: { resourceUri: WHOMI_URI },
+      "openai/outputTemplate": WHOMI_URI,
       "openai/widgetAccessible": true,
-      "openai/toolInvocation/invoking": "正在打开 Plan Board…",
-      "openai/toolInvocation/invoked": "Plan Board 已打开",
+      "openai/toolInvocation/invoking": "正在打开 whomi…",
+      "openai/toolInvocation/invoked": "whomi 已打开",
     },
   },
   async () => result(await service.overview()),

@@ -1,8 +1,8 @@
-# Plan Orchestrator
+# whomi
 
 一个面向 Codex 的本地任务控制台。你可以创建 Todo、把它们放进 Plan，并在当前 Codex task 或指定的后台 task 中执行。
 
-Codex 内嵌的 Plan Board 是主入口，可浮动在对话右侧。Next.js Web 控制台和 `planctl` CLI 作为独立管理入口，共用同一份本地 SQLite 数据。
+Codex 内嵌的 whomi 界面是主入口，可浮动在对话右侧。Next.js Web 控制台和 `whomi` CLI 作为独立管理入口，共用同一份本地 SQLite 数据。
 
 初版包含：
 
@@ -14,7 +14,7 @@ Codex 内嵌的 Plan Board 是主入口，可浮动在对话右侧。Next.js Web
 - 插件内一键把 Todo 作为当前 Codex task 的可见消息启动；
 - CLI/后台可在 Plan 绑定的 worktree + Codex task 中启动 Todo；
 - 完成记录保存准确的 `threadId + turnId`；
-- 可选的 MCP 工具与 `planctl` CLI。
+- 可选的 MCP 工具与 `whomi` CLI。
 
 ## 本地运行
 
@@ -25,7 +25,7 @@ pnpm install
 pnpm dev:web
 ```
 
-打开 [http://localhost:3001](http://localhost:3001)。端口固定为 `3001`，本地服务监听 `127.0.0.1:4317`，数据默认存到 `~/.codex/plan-orchestrator/`。
+打开 [http://localhost:3001](http://localhost:3001)。端口固定为 `3001`，本地服务监听 `127.0.0.1:4317`，数据默认存到 `~/.codex/whomi/`。
 
 日常使用：
 
@@ -45,13 +45,13 @@ pnpm start:web
 守护进程运行后：
 
 ```bash
-pnpm --filter @plan-orchestrator/daemon cli -- plans
-pnpm --filter @plan-orchestrator/daemon cli -- plan-add "A plan" "Project A" /path/to/project feat/a /path/to/worktree
-pnpm --filter @plan-orchestrator/daemon cli -- worktree <planId>
-pnpm --filter @plan-orchestrator/daemon cli -- todos
-pnpm --filter @plan-orchestrator/daemon cli -- add "修复登录回归" <planId>
-pnpm --filter @plan-orchestrator/daemon cli -- launch <todoId>
-pnpm --filter @plan-orchestrator/daemon cli -- complete <todoId> "验证已通过"
+pnpm --filter @whomi/daemon cli -- plans
+pnpm --filter @whomi/daemon cli -- plan-add "A plan" "Project A" /path/to/project feat/a /path/to/worktree
+pnpm --filter @whomi/daemon cli -- worktree <planId>
+pnpm --filter @whomi/daemon cli -- todos
+pnpm --filter @whomi/daemon cli -- add "修复登录回归" <planId>
+pnpm --filter @whomi/daemon cli -- launch <todoId>
+pnpm --filter @whomi/daemon cli -- complete <todoId> "验证已通过"
 ```
 
 ## Codex 插件
@@ -65,12 +65,12 @@ pnpm install
 pnpm build:plugin
 pnpm validate:plugin
 codex plugin marketplace add "$(pwd)"
-codex plugin add plan-orchestrator@personal
+codex plugin add whomi@personal
 ```
 
-安装或更新后需要新开一个 Codex task，让宿主加载新版本。打开 `Plan Board` 后可点右上角浮动按钮放到对话右侧。使用“当前 task 启动”前，应把 Plan 绑定到正在查看的同一个 task，以便插件匹配真实 turn 并保存完成链接。
+安装或更新后需要新开一个 Codex task，让宿主加载新版本。打开 `whomi` 后可点右上角浮动按钮放到对话右侧。使用“当前 task 启动”前，应把 Plan 绑定到正在查看的同一个 task，以便插件匹配真实 turn 并保存完成链接。
 
-产品与技术细节见 [设计文档](docs/plan-orchestrator-design.md)。
+产品与技术细节见 [设计文档](docs/whomi-design.md)。
 
 ## 关于完成链接
 

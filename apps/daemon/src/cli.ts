@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { isTodoStatus, TODO_STATUSES } from "@plan-orchestrator/shared";
+import { isTodoStatus, TODO_STATUSES } from "@whomi/shared";
 
-const baseUrl = process.env.PLAN_ORCHESTRATOR_URL ?? "http://127.0.0.1:4317";
+const baseUrl = process.env.WHOMI_URL ?? "http://127.0.0.1:4317";
 const cliArgs = process.argv.slice(2);
 if (cliArgs[0] === "--") cliArgs.shift();
 const [command, ...args] = cliArgs;
@@ -21,7 +21,7 @@ function print(value: unknown): void {
 }
 
 function usage(): never {
-  process.stderr.write(`planctl commands:\n`);
+  process.stderr.write(`whomi commands:\n`);
   process.stderr.write(`  plans\n`);
   process.stderr.write(`  plan-add <name> <projectName> <projectRoot> <branch> [worktreePath] [threadId]\n`);
   process.stderr.write(`  worktree <planId> [baseRef]\n`);

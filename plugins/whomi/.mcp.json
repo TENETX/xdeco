@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "plan-orchestrator": {
+    "whomi": {
       "command": "bash",
       "args": ["./scripts/start-mcp.sh"],
       "cwd": "."

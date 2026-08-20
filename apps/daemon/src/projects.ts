@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { readFile, stat } from "node:fs/promises";
 import { basename } from "node:path";
 import { promisify } from "node:util";
-import type { CodexProject } from "@plan-orchestrator/shared";
+import type { CodexProject } from "@whomi/shared";
 import { CODEX_GLOBAL_STATE_PATH } from "./config.js";
 
 const execFileAsync = promisify(execFile);

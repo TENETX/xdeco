@@ -8,7 +8,7 @@ import type {
   Todo,
   TodoRun,
   TodoStatus,
-} from "@plan-orchestrator/shared";
+} from "@whomi/shared";
 import { DATABASE_PATH } from "./config.js";
 
 type SqlValue = string | number | null;

@@ -1,5 +1,5 @@
 {
-  "name": "@plan-orchestrator/shared",
+  "name": "@whomi/shared",
   "version": "0.1.0",
   "private": true,
   "type": "module",

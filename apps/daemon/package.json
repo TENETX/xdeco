@@ -1,10 +1,10 @@
 {
-  "name": "@plan-orchestrator/daemon",
+  "name": "@whomi/daemon",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "bin": {
-    "planctl": "./dist/cli.js"
+    "whomi": "./dist/cli.js"
   },
   "scripts": {
     "dev:http": "tsx watch src/http.ts",
@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "latest",
-    "@plan-orchestrator/shared": "workspace:*",
+    "@whomi/shared": "workspace:*",
     "zod": "latest"
   },
   "devDependencies": {

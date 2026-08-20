@@ -1,16 +1,16 @@
 {
-  "name": "plan-orchestrator",
+  "name": "whomi",
   "version": "0.1.0+codex.20260820084729",
   "description": "Manage Todos across projects, Codex tasks, branches, and worktrees.",
   "author": {
-    "name": "Plan Orchestrator contributors"
+    "name": "whomi contributors"
   },
   "skills": "./skills/",
   "interface": {
-    "displayName": "Plan Orchestrator",
+    "displayName": "whomi",
     "shortDescription": "Route Todos into project-bound Codex execution lanes.",
     "longDescription": "Capture Todos from text or screenshots, organize them in six clear states, and launch queued work in the correct project, worktree, branch, and Codex task.",
-    "developerName": "Plan Orchestrator contributors",
+    "developerName": "whomi contributors",
     "category": "Productivity",
     "capabilities": [
       "Interactive",

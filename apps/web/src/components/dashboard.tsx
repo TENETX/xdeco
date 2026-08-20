@@ -32,7 +32,7 @@ import {
   type Plan,
   type Todo,
   type TodoStatus,
-} from "@plan-orchestrator/shared";
+} from "@whomi/shared";
 
 const ACTIVE_STATUSES = TODO_STATUSES.filter((status) => status !== "ended");
 
@@ -122,7 +122,7 @@ export function Dashboard() {
     <main className="appShell">
       <header className="topbar">
         <div className="brandMark"><Boxes size={18} strokeWidth={2.2} /></div>
-        <div className="brandText"><strong>Plan</strong><span>Orchestrator</span></div>
+        <div className="brandText"><strong>whomi</strong></div>
         <div className="topbarDivider" />
         <div className="contextTitle">
           <span>{selectedPlan ? selectedPlan.projectName : "全部 Todo"}</span>

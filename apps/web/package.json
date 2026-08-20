@@ -1,5 +1,5 @@
 {
-  "name": "@plan-orchestrator/web",
+  "name": "@whomi/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@plan-orchestrator/shared": "workspace:*",
+    "@whomi/shared": "workspace:*",
     "lucide-react": "latest",
     "next": "latest",
     "react": "latest",

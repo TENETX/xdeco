@@ -1,6 +1,6 @@
-export const PLAN_BOARD_URI = "ui://plan-orchestrator/plan-board-v1.html";
+export const WHOMI_URI = "ui://whomi/app-v1.html";
 
-export const PLAN_BOARD_HTML = String.raw`<!doctype html>
+export const WHOMI_HTML = String.raw`<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
@@ -495,7 +495,7 @@ export const PLAN_BOARD_HTML = String.raw`<!doctype html>
         <div class="mark" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="7" height="7" rx="2"/><rect x="14" y="4" width="7" height="7" rx="2"/><rect x="3" y="15" width="7" height="5" rx="2"/><rect x="14" y="15" width="7" height="5" rx="2"/></svg>
         </div>
-        <div class="title"><strong>Plan Orchestrator</strong><span id="subtitle">任务控制台</span></div>
+        <div class="title"><strong>whomi</strong><span id="subtitle">任务控制台</span></div>
         <div class="topActions">
           <button class="iconButton" id="refreshButton" type="button" aria-label="刷新" title="刷新">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>

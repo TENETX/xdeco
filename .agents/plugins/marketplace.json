@@ -5,10 +5,10 @@
   },
   "plugins": [
     {
-      "name": "plan-orchestrator",
+      "name": "whomi",
       "source": {
         "source": "local",
-        "path": "./plugins/plan-orchestrator"
+        "path": "./plugins/whomi"
       },
       "policy": {
         "installation": "AVAILABLE",

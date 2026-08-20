@@ -23,7 +23,7 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: latest
         version: 1.30.0(zod@4.4.3)
-      '@plan-orchestrator/shared':
+      '@whomi/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       zod:
@@ -42,7 +42,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@plan-orchestrator/shared':
+      '@whomi/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       lucide-react:

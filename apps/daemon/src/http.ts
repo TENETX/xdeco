@@ -2,8 +2,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { mkdir, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { randomUUID } from "node:crypto";
-import type { CreatePlanInput, CreateTodoInput, TodoStatus } from "@plan-orchestrator/shared";
-import { isTodoStatus } from "@plan-orchestrator/shared";
+import type { CreatePlanInput, CreateTodoInput, TodoStatus } from "@whomi/shared";
+import { isTodoStatus } from "@whomi/shared";
 import { DAEMON_HOST, DAEMON_PORT, DATA_DIR } from "./config.js";
 import { PlanService } from "./service.js";
 
@@ -54,7 +54,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   const path = url.pathname;
 
   if (request.method === "GET" && path === "/health") {
-    return send(response, 200, { ok: true, service: "plan-orchestrator", version: "0.1.0" });
+    return send(response, 200, { ok: true, service: "whomi", version: "0.1.0" });
   }
 
   if (request.method === "GET" && path === "/api/overview") {
@@ -132,7 +132,7 @@ const server = createServer((request, response) => {
 });
 
 server.listen(DAEMON_PORT, DAEMON_HOST, () => {
-  process.stdout.write(`Plan Orchestrator API listening on http://${DAEMON_HOST}:${DAEMON_PORT}\n`);
+  process.stdout.write(`whomi API listening on http://${DAEMON_HOST}:${DAEMON_PORT}\n`);
 });
 
 function shutdown(): void {

@@ -10,7 +10,7 @@ import { CodexProjectCatalog } from "./projects.js";
 const execFileAsync = promisify(execFile);
 
 test("discovers Codex local projects in recency order with Git metadata", async (context) => {
-  const directory = await mkdtemp(join(tmpdir(), "plan-orchestrator-projects-"));
+  const directory = await mkdtemp(join(tmpdir(), "whomi-projects-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
   const recentRoot = join(directory, "recent");
   const olderRoot = join(directory, "older");

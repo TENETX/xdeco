@@ -1,8 +1,8 @@
-# Codex Plan Orchestrator 产品与技术设计
+# Codex whomi 产品与技术设计
 
 > 状态：Draft v0.1  
 > 更新时间：2026-08-20  
-> 暂定名称：Plan Orchestrator
+> 产品名称：whomi
 
 ## 1. 结论
 
@@ -220,8 +220,8 @@ UI 示例：
 ```text
 Codex Plugin
 ├── Skills
-│   ├── plan-inbox
-│   └── plan-runner
+│   ├── inbox
+│   └── runner
 ├── MCP configuration
 └── Optional embedded UI
 
@@ -288,18 +288,18 @@ whomi/
 │   ├── codex-client/           # App Server 适配器
 │   └── shared/                 # types/schemas
 ├── plugin/
-│   └── plan-orchestrator/
+│   └── whomi/
 │       ├── .codex-plugin/
 │       │   └── plugin.json
 │       ├── skills/
-│       │   ├── plan-inbox/
+│       │   ├── inbox/
 │       │   │   └── SKILL.md
-│       │   └── plan-runner/
+│       │   └── runner/
 │       │       └── SKILL.md
 │       ├── .mcp.json
 │       └── .app.json           # 后续需要嵌入 UI 时添加
 ├── docs/
-│   └── plan-orchestrator-design.md
+│   └── whomi-design.md
 └── package.json
 ```
 
