@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "plan-orchestrator": {
+      "command": "bash",
+      "args": ["./scripts/start-mcp.sh"],
+      "cwd": "."
+    }
+  }
+}

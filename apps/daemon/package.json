@@ -1,0 +1,29 @@
+{
+  "name": "@plan-orchestrator/daemon",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "planctl": "./dist/cli.js"
+  },
+  "scripts": {
+    "dev:http": "tsx watch src/http.ts",
+    "start:http": "tsx src/http.ts",
+    "mcp": "tsx src/mcp.ts",
+    "cli": "tsx src/cli.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test src/**/*.test.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "latest",
+    "@plan-orchestrator/shared": "workspace:*",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "tsx": "latest",
+    "typescript": "latest"
+  }
+}
+

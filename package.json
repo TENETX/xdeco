@@ -1,0 +1,21 @@
+{
+  "name": "plan-orchestrator",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.32.1",
+  "scripts": {
+    "dev": "pnpm dev:web",
+    "dev:web": "concurrently -n api,web -c cyan,magenta \"pnpm --filter @plan-orchestrator/daemon dev:http\" \"pnpm --filter @plan-orchestrator/web dev\"",
+    "start:web": "concurrently -n api,web -c cyan,magenta \"pnpm --filter @plan-orchestrator/daemon start:http\" \"pnpm --filter @plan-orchestrator/web start\"",
+    "build": "pnpm -r build",
+    "build:plugin": "esbuild apps/daemon/src/mcp.ts --bundle --platform=node --format=esm --target=node22 --outfile=plugins/plan-orchestrator/scripts/mcp.mjs",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm --filter @plan-orchestrator/daemon test",
+    "validate:plugin": "bash scripts/validate-plugin.sh"
+  },
+  "devDependencies": {
+    "concurrently": "latest",
+    "esbuild": "^0.28.2",
+    "typescript": "latest"
+  }
+}
