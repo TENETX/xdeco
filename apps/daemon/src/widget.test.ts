@@ -22,3 +22,13 @@ test("widget lets users bind a destination task", () => {
   assert.match(WHOMI_HTML, /targetThreadId/);
   assert.match(WHOMI_HTML, /首次发送时新建任务/);
 });
+
+test("widget can move between compact and fullscreen presentation", () => {
+  assert.match(WHOMI_HTML, /requestDisplayMode/);
+  assert.match(WHOMI_HTML, /"fullscreen"/);
+  assert.match(WHOMI_HTML, /"inline"/);
+  assert.match(WHOMI_HTML, /openai:set_globals/);
+  assert.match(WHOMI_HTML, /window\.openai\.displayMode/);
+  assert.match(WHOMI_HTML, /打开全屏/);
+  assert.match(WHOMI_HTML, /收起/);
+});
