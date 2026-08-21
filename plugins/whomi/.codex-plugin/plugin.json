@@ -1,6 +1,6 @@
 {
   "name": "whomi",
-  "version": "0.2.0+codex.20260821034331",
+  "version": "0.2.0+codex.20260821035638",
   "description": "Collect Todos by project and send ready work to Codex one item at a time.",
   "author": {
     "name": "whomi contributors"

@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type {
@@ -9,7 +9,7 @@ import type {
   TodoRun,
   TodoStatus,
 } from "@whomi/shared";
-import { DATABASE_PATH } from "./config.js";
+import { DATABASE_PATH, LEGACY_DATABASE_PATH } from "./config.js";
 
 type SqlValue = string | number | null;
 
@@ -20,11 +20,15 @@ function now(): string {
 export class WhomiDatabase {
   readonly db: DatabaseSync;
 
-  constructor(path = DATABASE_PATH) {
+  constructor(
+    path = DATABASE_PATH,
+    legacyPath: string | null = path === DATABASE_PATH ? LEGACY_DATABASE_PATH : null,
+  ) {
     if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
     this.db = new DatabaseSync(path);
     this.db.exec("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;");
     this.migrate();
+    if (legacyPath && legacyPath !== path && existsSync(legacyPath)) this.importLegacyDatabase(legacyPath);
   }
 
   private hasTable(name: string): boolean {
@@ -101,32 +105,63 @@ export class WhomiDatabase {
       this.createSchema();
       this.db.exec(`
         INSERT INTO projects (id, name, root_path, target_thread_id, auto_dispatch, color, created_at, updated_at)
-        SELECT id, name, project_root, thread_id, 1, color, created_at, updated_at FROM legacy_plans;
+        SELECT source.id, source.name, source.project_root, source.thread_id, 1,
+          source.color, source.created_at, source.updated_at
+        FROM legacy_plans AS source
+        WHERE source.id = (
+          SELECT candidate.id
+          FROM legacy_plans AS candidate
+          WHERE candidate.name COLLATE NOCASE = source.name COLLATE NOCASE
+          ORDER BY candidate.updated_at DESC, candidate.created_at DESC, candidate.id ASC
+          LIMIT 1
+        );
 
         INSERT INTO todos (
           id, project_id, title, description, status, source_type, source_path, position,
           created_at, updated_at, completed_at, completion_thread_id, completion_turn_id,
           completion_summary, last_error
         )
-        SELECT id, plan_id, title, description,
-          CASE status
+        SELECT todo.id, project_map.project_id, todo.title, todo.description,
+          CASE todo.status
             WHEN 'queued' THEN 'ready'
             WHEN 'running' THEN 'running'
             WHEN 'completed' THEN 'completed'
             WHEN 'ended' THEN 'archived'
             ELSE 'draft'
           END,
-          source_type, source_path, position, created_at, updated_at, completed_at,
-          completion_thread_id, completion_turn_id, completion_summary, NULL
-        FROM legacy_todos;
+          todo.source_type, todo.source_path, todo.position, todo.created_at, todo.updated_at,
+          todo.completed_at, todo.completion_thread_id, todo.completion_turn_id,
+          todo.completion_summary, NULL
+        FROM legacy_todos AS todo
+        LEFT JOIN (
+          SELECT source.id AS legacy_id, (
+            SELECT candidate.id
+            FROM legacy_plans AS candidate
+            WHERE candidate.name COLLATE NOCASE = source.name COLLATE NOCASE
+            ORDER BY candidate.updated_at DESC, candidate.created_at DESC, candidate.id ASC
+            LIMIT 1
+          ) AS project_id
+          FROM legacy_plans AS source
+        ) AS project_map ON project_map.legacy_id = todo.plan_id;
       `);
       if (this.hasTable("legacy_todo_runs")) {
         this.db.exec(`
           INSERT INTO todo_runs (
             id, todo_id, project_id, thread_id, turn_id, status, started_at, finished_at, error
           )
-          SELECT id, todo_id, plan_id, thread_id, turn_id, status, started_at, finished_at, error
-          FROM legacy_todo_runs;
+          SELECT run.id, run.todo_id, project_map.project_id, run.thread_id, run.turn_id,
+            run.status, run.started_at, run.finished_at, run.error
+          FROM legacy_todo_runs AS run
+          JOIN (
+            SELECT source.id AS legacy_id, (
+              SELECT candidate.id
+              FROM legacy_plans AS candidate
+              WHERE candidate.name COLLATE NOCASE = source.name COLLATE NOCASE
+              ORDER BY candidate.updated_at DESC, candidate.created_at DESC, candidate.id ASC
+              LIMIT 1
+            ) AS project_id
+            FROM legacy_plans AS source
+          ) AS project_map ON project_map.legacy_id = run.plan_id;
         `);
         this.db.exec("DROP TABLE legacy_todo_runs");
       }
@@ -136,6 +171,98 @@ export class WhomiDatabase {
       throw error;
     } finally {
       this.db.exec("PRAGMA foreign_keys = ON");
+    }
+  }
+
+  private importLegacyDatabase(path: string): void {
+    const current = this.db.prepare(`
+      SELECT
+        (SELECT COUNT(*) FROM projects) AS projects,
+        (SELECT COUNT(*) FROM todos) AS todos
+    `).get() as { projects: number; todos: number };
+    if (current.projects > 0 || current.todos > 0) return;
+
+    this.db.prepare("ATTACH DATABASE ? AS legacy_source").run(path);
+    try {
+      const hasPlans = Boolean(this.db.prepare(`
+        SELECT 1 FROM legacy_source.sqlite_master WHERE type = 'table' AND name = 'plans'
+      `).get());
+      if (!hasPlans) return;
+
+      this.db.exec("BEGIN IMMEDIATE");
+      this.db.exec(`
+        INSERT INTO projects (id, name, root_path, target_thread_id, auto_dispatch, color, created_at, updated_at)
+        SELECT source.id, source.name, source.project_root, source.thread_id, 1,
+          source.color, source.created_at, source.updated_at
+        FROM legacy_source.plans AS source
+        WHERE source.id = (
+          SELECT candidate.id
+          FROM legacy_source.plans AS candidate
+          WHERE candidate.name COLLATE NOCASE = source.name COLLATE NOCASE
+          ORDER BY candidate.updated_at DESC, candidate.created_at DESC, candidate.id ASC
+          LIMIT 1
+        );
+
+        INSERT INTO todos (
+          id, project_id, title, description, status, source_type, source_path, position,
+          created_at, updated_at, completed_at, completion_thread_id, completion_turn_id,
+          completion_summary, last_error
+        )
+        SELECT todo.id, project_map.project_id, todo.title, todo.description,
+          CASE todo.status
+            WHEN 'queued' THEN 'ready'
+            WHEN 'running' THEN 'running'
+            WHEN 'completed' THEN 'completed'
+            WHEN 'ended' THEN 'archived'
+            ELSE 'draft'
+          END,
+          todo.source_type, todo.source_path, todo.position, todo.created_at, todo.updated_at,
+          todo.completed_at, todo.completion_thread_id, todo.completion_turn_id,
+          todo.completion_summary, NULL
+        FROM legacy_source.todos AS todo
+        LEFT JOIN (
+          SELECT source.id AS legacy_id, (
+            SELECT candidate.id
+            FROM legacy_source.plans AS candidate
+            WHERE candidate.name COLLATE NOCASE = source.name COLLATE NOCASE
+            ORDER BY candidate.updated_at DESC, candidate.created_at DESC, candidate.id ASC
+            LIMIT 1
+          ) AS project_id
+          FROM legacy_source.plans AS source
+        ) AS project_map ON project_map.legacy_id = todo.plan_id;
+      `);
+
+      const hasRuns = Boolean(this.db.prepare(`
+        SELECT 1 FROM legacy_source.sqlite_master WHERE type = 'table' AND name = 'todo_runs'
+      `).get());
+      if (hasRuns) {
+        this.db.exec(`
+          INSERT INTO todo_runs (
+            id, todo_id, project_id, thread_id, turn_id, status, started_at, finished_at, error
+          )
+          SELECT run.id, run.todo_id, project_map.project_id, run.thread_id, run.turn_id,
+            run.status, run.started_at, run.finished_at, run.error
+          FROM legacy_source.todo_runs AS run
+          JOIN (
+            SELECT source.id AS legacy_id, (
+              SELECT candidate.id
+              FROM legacy_source.plans AS candidate
+              WHERE candidate.name COLLATE NOCASE = source.name COLLATE NOCASE
+              ORDER BY candidate.updated_at DESC, candidate.created_at DESC, candidate.id ASC
+              LIMIT 1
+            ) AS project_id
+            FROM legacy_source.plans AS source
+          ) AS project_map ON project_map.legacy_id = run.plan_id;
+        `);
+      }
+      this.db.prepare("INSERT OR REPLACE INTO settings(key, value) VALUES ('legacy_import_completed', ?)")
+        .run(now());
+      this.db.exec("COMMIT");
+    } catch (error) {
+      if (this.db.isTransaction) this.db.exec("ROLLBACK");
+      throw error;
+    } finally {
+      this.db.exec("DETACH DATABASE legacy_source");
     }
   }
 

@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -15,13 +14,11 @@ export const DATA_DIR = process.env.WHOMI_DATA_DIR
   ? resolve(process.env.WHOMI_DATA_DIR)
   : join(CODEX_HOME, "whomi");
 
-const LEGACY_DATABASE_PATH = join(CODEX_HOME, "plan-orchestrator", "plan-orchestrator.sqlite");
+export const LEGACY_DATABASE_PATH = join(CODEX_HOME, "plan-orchestrator", "plan-orchestrator.sqlite");
 
 export const DATABASE_PATH = process.env.WHOMI_DATABASE
   ? resolve(process.env.WHOMI_DATABASE)
-  : existsSync(LEGACY_DATABASE_PATH)
-    ? LEGACY_DATABASE_PATH
-    : join(DATA_DIR, "whomi.sqlite");
+  : join(DATA_DIR, "whomi.sqlite");
 
 export const CAPTURE_MODEL = process.env.WHOMI_CAPTURE_MODEL ?? "gpt-5.6-luna";
 export const EXECUTION_MODEL = process.env.WHOMI_EXECUTION_MODEL ?? "gpt-5.6-terra";
