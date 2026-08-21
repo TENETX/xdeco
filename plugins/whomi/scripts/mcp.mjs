@@ -2983,7 +2983,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve4.call(this, root, ref);
+      let _sch = resolve3.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a3 = root.localRefs) === null || _a3 === void 0 ? void 0 : _a3[ref];
         const { schemaId } = this.opts;
@@ -3010,7 +3010,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve4(root, ref) {
+    function resolve3(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3641,7 +3641,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve4(baseURI, relativeURI, options) {
+    function resolve3(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const { parsed: baseParsed, malformedAuthorityOrPort: baseMalformed } = parseWithStatus(baseURI, schemelessOptions);
       const { parsed: relativeParsed, malformedAuthorityOrPort: relativeMalformed } = parseWithStatus(relativeURI, schemelessOptions);
@@ -3925,7 +3925,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve4,
+      resolve: resolve3,
       resolveComponent,
       equal,
       serialize,
@@ -28872,7 +28872,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve4) => setTimeout(resolve4, pollInterval));
+        await new Promise((resolve3) => setTimeout(resolve3, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error51) {
@@ -28889,7 +28889,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve4, reject) => {
+    return new Promise((resolve3, reject) => {
       const earlyReject = (error51) => {
         reject(error51);
       };
@@ -28967,7 +28967,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve4(parseResult.data);
+            resolve3(parseResult.data);
           }
         } catch (error51) {
           reject(error51);
@@ -29228,12 +29228,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve4, reject) => {
+    return new Promise((resolve3, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve4, interval);
+      const timeoutId = setTimeout(resolve3, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -30324,7 +30324,7 @@ var McpServer = class {
     let task = createTaskResult.task;
     const pollInterval = task.pollInterval ?? 5e3;
     while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-      await new Promise((resolve4) => setTimeout(resolve4, pollInterval));
+      await new Promise((resolve3) => setTimeout(resolve3, pollInterval));
       const updatedTask = await extra.taskStore.getTask(taskId);
       if (!updatedTask) {
         throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -30988,12 +30988,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve4) => {
+    return new Promise((resolve3) => {
       const json2 = serializeMessage(message);
       if (this._stdout.write(json2)) {
-        resolve4();
+        resolve3();
       } else {
-        this._stdout.once("drain", resolve4);
+        this._stdout.once("drain", resolve3);
       }
     });
   }
@@ -31006,12 +31006,13 @@ import { join as join2 } from "node:path";
 
 // packages/shared/src/index.ts
 var TODO_STATUSES = [
-  "someday",
-  "waiting",
-  "queued",
+  "draft",
+  "ready",
+  "sending",
   "running",
   "completed",
-  "ended"
+  "failed",
+  "archived"
 ];
 function countByStatus(todos) {
   return Object.fromEntries(
@@ -31034,11 +31035,7 @@ var CAPTURE_MODEL = process.env.WHOMI_CAPTURE_MODEL ?? "gpt-5.6-luna";
 var EXECUTION_MODEL = process.env.WHOMI_EXECUTION_MODEL ?? "gpt-5.6-terra";
 
 // apps/daemon/src/service.ts
-import { access, stat as stat2 } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { execFile as execFile2 } from "node:child_process";
-import { promisify as promisify2 } from "node:util";
-import { isAbsolute as isAbsolute2, resolve as resolve3 } from "node:path";
 
 // apps/daemon/src/app-server.ts
 import { spawn } from "node:child_process";
@@ -31189,8 +31186,8 @@ var CodexAppServer = class {
   async request(method, params) {
     if (method !== "initialize") await this.start();
     const id = this.nextId++;
-    return new Promise((resolve4, reject) => {
-      this.pending.set(id, { resolve: resolve4, reject });
+    return new Promise((resolve3, reject) => {
+      this.pending.set(id, { resolve: resolve3, reject });
       this.write({ id, method, params });
     });
   }
@@ -31274,13 +31271,13 @@ var CodexAppServer = class {
   async waitForTurn(turnId, timeoutMs = 12e4) {
     const finished = this.finishedTurns.get(turnId);
     if (finished) return finished;
-    return new Promise((resolve4, reject) => {
+    return new Promise((resolve3, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error(`Timed out waiting for Codex turn ${turnId}`));
       }, timeoutMs);
       const waiter = (snapshot) => {
         clearTimeout(timeout);
-        resolve4(snapshot);
+        resolve3(snapshot);
       };
       const waiters = this.turnWaiters.get(turnId) ?? [];
       waiters.push(waiter);
@@ -31296,7 +31293,7 @@ import { DatabaseSync } from "node:sqlite";
 function now() {
   return (/* @__PURE__ */ new Date()).toISOString();
 }
-var PlanDatabase = class {
+var WhomiDatabase = class {
   db;
   constructor(path = DATABASE_PATH) {
     if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
@@ -31304,17 +31301,21 @@ var PlanDatabase = class {
     this.db.exec("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;");
     this.migrate();
   }
+  hasTable(name) {
+    return Boolean(this.db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name));
+  }
   migrate() {
+    if (!this.hasTable("projects") && this.hasTable("plans")) this.migrateLegacyPlans();
+    this.createSchema();
+  }
+  createSchema() {
     this.db.exec(`
-      CREATE TABLE IF NOT EXISTS plans (
+      CREATE TABLE IF NOT EXISTS projects (
         id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        codex_project_id TEXT,
-        project_name TEXT NOT NULL,
-        project_root TEXT NOT NULL,
-        branch TEXT NOT NULL,
-        worktree_path TEXT NOT NULL,
-        thread_id TEXT,
+        name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        root_path TEXT NOT NULL DEFAULT '',
+        target_thread_id TEXT,
+        auto_dispatch INTEGER NOT NULL DEFAULT 1,
         color TEXT NOT NULL DEFAULT '#6f8f4f',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
@@ -31322,10 +31323,10 @@ var PlanDatabase = class {
 
       CREATE TABLE IF NOT EXISTS todos (
         id TEXT PRIMARY KEY,
-        plan_id TEXT REFERENCES plans(id) ON DELETE SET NULL,
+        project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
         title TEXT NOT NULL,
         description TEXT NOT NULL DEFAULT '',
-        status TEXT NOT NULL CHECK (status IN ('someday','waiting','queued','running','completed','ended')),
+        status TEXT NOT NULL CHECK (status IN ('draft','ready','sending','running','completed','failed','archived')),
         source_type TEXT NOT NULL CHECK (source_type IN ('text','screenshot','mcp')),
         source_path TEXT,
         position INTEGER NOT NULL DEFAULT 0,
@@ -31334,15 +31335,17 @@ var PlanDatabase = class {
         completed_at TEXT,
         completion_thread_id TEXT,
         completion_turn_id TEXT,
-        completion_summary TEXT
+        completion_summary TEXT,
+        last_error TEXT
       );
 
-      CREATE INDEX IF NOT EXISTS todos_plan_status_idx ON todos(plan_id, status, position);
+      CREATE INDEX IF NOT EXISTS todos_project_status_idx
+        ON todos(project_id, status, position, created_at);
 
       CREATE TABLE IF NOT EXISTS todo_runs (
         id TEXT PRIMARY KEY,
         todo_id TEXT NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
-        plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
         thread_id TEXT NOT NULL,
         turn_id TEXT NOT NULL,
         status TEXT NOT NULL,
@@ -31358,216 +31361,226 @@ var PlanDatabase = class {
         value TEXT NOT NULL
       );
     `);
-    const planColumns = this.db.prepare("PRAGMA table_info(plans)").all();
-    if (!planColumns.some((column) => column.name === "codex_project_id")) {
-      this.db.exec("ALTER TABLE plans ADD COLUMN codex_project_id TEXT");
+  }
+  migrateLegacyPlans() {
+    this.db.exec("PRAGMA foreign_keys = OFF");
+    try {
+      this.db.exec("BEGIN IMMEDIATE");
+      this.db.exec("ALTER TABLE plans RENAME TO legacy_plans");
+      this.db.exec("ALTER TABLE todos RENAME TO legacy_todos");
+      if (this.hasTable("todo_runs")) this.db.exec("ALTER TABLE todo_runs RENAME TO legacy_todo_runs");
+      this.createSchema();
+      this.db.exec(`
+        INSERT INTO projects (id, name, root_path, target_thread_id, auto_dispatch, color, created_at, updated_at)
+        SELECT id, name, project_root, thread_id, 1, color, created_at, updated_at FROM legacy_plans;
+
+        INSERT INTO todos (
+          id, project_id, title, description, status, source_type, source_path, position,
+          created_at, updated_at, completed_at, completion_thread_id, completion_turn_id,
+          completion_summary, last_error
+        )
+        SELECT id, plan_id, title, description,
+          CASE status
+            WHEN 'queued' THEN 'ready'
+            WHEN 'running' THEN 'running'
+            WHEN 'completed' THEN 'completed'
+            WHEN 'ended' THEN 'archived'
+            ELSE 'draft'
+          END,
+          source_type, source_path, position, created_at, updated_at, completed_at,
+          completion_thread_id, completion_turn_id, completion_summary, NULL
+        FROM legacy_todos;
+      `);
+      if (this.hasTable("legacy_todo_runs")) {
+        this.db.exec(`
+          INSERT INTO todo_runs (
+            id, todo_id, project_id, thread_id, turn_id, status, started_at, finished_at, error
+          )
+          SELECT id, todo_id, plan_id, thread_id, turn_id, status, started_at, finished_at, error
+          FROM legacy_todo_runs;
+        `);
+        this.db.exec("DROP TABLE legacy_todo_runs");
+      }
+      this.db.exec("DROP TABLE legacy_todos; DROP TABLE legacy_plans; COMMIT");
+    } catch (error51) {
+      this.db.exec("ROLLBACK");
+      throw error51;
+    } finally {
+      this.db.exec("PRAGMA foreign_keys = ON");
     }
   }
   close() {
     this.db.close();
   }
-  listPlans() {
+  listProjects() {
     return this.db.prepare(`
-      SELECT id, name, codex_project_id AS codexProjectId,
-        project_name AS projectName, project_root AS projectRoot,
-        branch, worktree_path AS worktreePath, thread_id AS threadId, color,
-        created_at AS createdAt, updated_at AS updatedAt
-      FROM plans ORDER BY updated_at DESC
-    `).all();
+      SELECT id, name, root_path AS rootPath, target_thread_id AS targetThreadId,
+        auto_dispatch AS autoDispatch, color, created_at AS createdAt, updated_at AS updatedAt
+      FROM projects ORDER BY updated_at DESC
+    `).all().map((row) => ({ ...row, autoDispatch: Boolean(row.autoDispatch) }));
   }
-  getPlan(id) {
-    return this.db.prepare(`
-      SELECT id, name, codex_project_id AS codexProjectId,
-        project_name AS projectName, project_root AS projectRoot,
-        branch, worktree_path AS worktreePath, thread_id AS threadId, color,
-        created_at AS createdAt, updated_at AS updatedAt
-      FROM plans WHERE id = ?
-    `).get(id) ?? null;
+  getProject(id) {
+    const row = this.db.prepare(`
+      SELECT id, name, root_path AS rootPath, target_thread_id AS targetThreadId,
+        auto_dispatch AS autoDispatch, color, created_at AS createdAt, updated_at AS updatedAt
+      FROM projects WHERE id = ?
+    `).get(id);
+    return row ? { ...row, autoDispatch: Boolean(row.autoDispatch) } : null;
   }
-  createPlan(id, input) {
+  findProjectByName(name) {
+    const row = this.db.prepare("SELECT id FROM projects WHERE name = ? COLLATE NOCASE").get(name);
+    return row ? this.getProject(row.id) : null;
+  }
+  createProject(id, input) {
     const timestamp = now();
     this.db.prepare(`
-      INSERT INTO plans (
-        id, name, codex_project_id, project_name, project_root, branch, worktree_path,
-        thread_id, color, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO projects (id, name, root_path, target_thread_id, auto_dispatch, color, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       input.name,
-      input.codexProjectId ?? null,
-      input.projectName,
-      input.projectRoot,
-      input.branch,
-      input.worktreePath || input.projectRoot,
-      input.threadId ?? null,
+      input.rootPath,
+      input.targetThreadId ?? null,
+      input.autoDispatch === false ? 0 : 1,
       input.color ?? "#6f8f4f",
       timestamp,
       timestamp
     );
-    return this.getPlan(id);
+    return this.getProject(id);
   }
-  updatePlan(id, input) {
+  updateProject(id, input) {
     const fields = [];
     const map2 = {
       name: "name",
-      codexProjectId: "codex_project_id",
-      projectName: "project_name",
-      projectRoot: "project_root",
-      branch: "branch",
-      worktreePath: "worktree_path",
-      threadId: "thread_id",
+      rootPath: "root_path",
+      targetThreadId: "target_thread_id",
+      autoDispatch: "auto_dispatch",
       color: "color"
     };
     for (const [key, column] of Object.entries(map2)) {
-      if (key in input) fields.push([column, input[key] ?? null]);
+      if (!(key in input)) continue;
+      const raw = input[key];
+      fields.push([column, key === "autoDispatch" ? raw ? 1 : 0 : raw ?? null]);
     }
-    if (!fields.length) return this.getPlan(id);
+    if (!fields.length) return this.getProject(id);
     fields.push(["updated_at", now()]);
     const set2 = fields.map(([column]) => `${column} = ?`).join(", ");
-    this.db.prepare(`UPDATE plans SET ${set2} WHERE id = ?`).run(...fields.map(([, value]) => value), id);
-    return this.getPlan(id);
+    this.db.prepare(`UPDATE projects SET ${set2} WHERE id = ?`).run(...fields.map(([, value]) => value), id);
+    return this.getProject(id);
   }
-  listTodos(planId, includeEnded = true) {
+  listTodos(projectId, includeArchived = true) {
     const clauses = [];
     const params = [];
-    if (planId) {
-      clauses.push("plan_id = ?");
-      params.push(planId);
+    if (projectId) {
+      clauses.push("project_id = ?");
+      params.push(projectId);
     }
-    if (!includeEnded) clauses.push("status != 'ended'");
+    if (!includeArchived) clauses.push("status != 'archived'");
     const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
-    return this.db.prepare(`
-      SELECT id, plan_id AS planId, title, description, status,
-        source_type AS sourceType, source_path AS sourcePath, position,
-        created_at AS createdAt, updated_at AS updatedAt, completed_at AS completedAt,
-        completion_thread_id AS completionThreadId,
-        completion_turn_id AS completionTurnId,
-        completion_summary AS completionSummary
-      FROM todos ${where}
-      ORDER BY position ASC, created_at DESC
-    `).all(...params);
+    return this.db.prepare(`${this.todoSelect()} ${where} ORDER BY position ASC, created_at ASC`).all(...params);
   }
   getTodo(id) {
-    return this.db.prepare(`
-      SELECT id, plan_id AS planId, title, description, status,
-        source_type AS sourceType, source_path AS sourcePath, position,
-        created_at AS createdAt, updated_at AS updatedAt, completed_at AS completedAt,
-        completion_thread_id AS completionThreadId,
-        completion_turn_id AS completionTurnId,
-        completion_summary AS completionSummary
-      FROM todos WHERE id = ?
-    `).get(id) ?? null;
+    return this.db.prepare(`${this.todoSelect()} WHERE id = ?`).get(id) ?? null;
+  }
+  todoSelect() {
+    return `SELECT id, project_id AS projectId, title, description, status,
+      source_type AS sourceType, source_path AS sourcePath, position,
+      created_at AS createdAt, updated_at AS updatedAt, completed_at AS completedAt,
+      completion_thread_id AS completionThreadId, completion_turn_id AS completionTurnId,
+      completion_summary AS completionSummary, last_error AS lastError FROM todos`;
   }
   createTodo(id, input) {
     const timestamp = now();
-    const status = input.status ?? "someday";
+    const status = input.status ?? "draft";
+    const next = this.db.prepare("SELECT COALESCE(MAX(position), -1) + 1 AS position FROM todos WHERE project_id IS ?").get(input.projectId ?? null);
     this.db.prepare(`
       INSERT INTO todos (
-        id, plan_id, title, description, status, source_type, source_path,
+        id, project_id, title, description, status, source_type, source_path,
         position, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
-      input.planId ?? null,
+      input.projectId ?? null,
       input.title,
       input.description ?? "",
       status,
       input.sourceType ?? "text",
       input.sourcePath ?? null,
+      next.position,
       timestamp,
       timestamp
     );
     return this.getTodo(id);
   }
-  updateTodoStatus(id, status, planId) {
+  updateTodoStatus(id, status, projectId, error51) {
     const timestamp = now();
     const completedAt = status === "completed" ? timestamp : null;
-    if (planId !== void 0) {
-      this.db.prepare(`
-        UPDATE todos SET status = ?, plan_id = ?, updated_at = ?, completed_at = ? WHERE id = ?
-      `).run(status, planId, timestamp, completedAt, id);
+    if (projectId !== void 0) {
+      this.db.prepare(`UPDATE todos SET status = ?, project_id = ?, updated_at = ?, completed_at = ?, last_error = ? WHERE id = ?`).run(status, projectId, timestamp, completedAt, error51 ?? null, id);
     } else {
-      this.db.prepare(`
-        UPDATE todos SET status = ?, updated_at = ?, completed_at = ? WHERE id = ?
-      `).run(status, timestamp, completedAt, id);
+      this.db.prepare(`UPDATE todos SET status = ?, updated_at = ?, completed_at = ?, last_error = ? WHERE id = ?`).run(status, timestamp, completedAt, error51 ?? null, id);
     }
     return this.getTodo(id);
+  }
+  claimNextReady(projectId) {
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const active = this.db.prepare("SELECT 1 FROM todos WHERE project_id = ? AND status IN ('sending','running') LIMIT 1").get(projectId);
+      if (active) {
+        this.db.exec("COMMIT");
+        return null;
+      }
+      const row = this.db.prepare("SELECT id FROM todos WHERE project_id = ? AND status = 'ready' ORDER BY position, created_at LIMIT 1").get(projectId);
+      if (!row) {
+        this.db.exec("COMMIT");
+        return null;
+      }
+      this.db.prepare("UPDATE todos SET status = 'sending', updated_at = ?, last_error = NULL WHERE id = ? AND status = 'ready'").run(now(), row.id);
+      this.db.exec("COMMIT");
+      return this.getTodo(row.id);
+    } catch (error51) {
+      this.db.exec("ROLLBACK");
+      throw error51;
+    }
   }
   completeTodo(id, threadId, turnId, summary) {
     const timestamp = now();
     this.db.prepare(`
       UPDATE todos SET status = 'completed', updated_at = ?, completed_at = ?,
-        completion_thread_id = ?, completion_turn_id = ?, completion_summary = ?
+        completion_thread_id = ?, completion_turn_id = ?, completion_summary = ?, last_error = NULL
       WHERE id = ?
     `).run(timestamp, timestamp, threadId, turnId, summary, id);
     return this.getTodo(id);
   }
   createRun(run) {
     this.db.prepare(`
-      INSERT INTO todo_runs (
-        id, todo_id, plan_id, thread_id, turn_id, status, started_at, finished_at, error
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      run.id,
-      run.todoId,
-      run.planId,
-      run.threadId,
-      run.turnId,
-      run.status,
-      run.startedAt,
-      run.finishedAt,
-      run.error
-    );
+      INSERT INTO todo_runs (id, todo_id, project_id, thread_id, turn_id, status, started_at, finished_at, error)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(run.id, run.todoId, run.projectId, run.threadId, run.turnId, run.status, run.startedAt, run.finishedAt, run.error);
     return run;
   }
   latestRun(todoId) {
     return this.db.prepare(`
-      SELECT id, todo_id AS todoId, plan_id AS planId, thread_id AS threadId,
-        turn_id AS turnId, status, started_at AS startedAt,
-        finished_at AS finishedAt, error
+      SELECT id, todo_id AS todoId, project_id AS projectId, thread_id AS threadId,
+        turn_id AS turnId, status, started_at AS startedAt, finished_at AS finishedAt, error
       FROM todo_runs WHERE todo_id = ? ORDER BY started_at DESC LIMIT 1
     `).get(todoId) ?? null;
   }
-  getRunByTurn(turnId) {
-    return this.db.prepare(`
-      SELECT id, todo_id AS todoId, plan_id AS planId, thread_id AS threadId,
-        turn_id AS turnId, status, started_at AS startedAt,
-        finished_at AS finishedAt, error
-      FROM todo_runs WHERE turn_id = ? ORDER BY started_at DESC LIMIT 1
-    `).get(turnId) ?? null;
-  }
   updateRunByTurn(turnId, status, error51) {
-    this.db.prepare(`
-      UPDATE todo_runs SET status = ?, finished_at = ?, error = ? WHERE turn_id = ?
-    `).run(status, now(), error51, turnId);
+    this.db.prepare("UPDATE todo_runs SET status = ?, finished_at = ?, error = ? WHERE turn_id = ?").run(status, now(), error51, turnId);
   }
   getSetting(key) {
     const row = this.db.prepare("SELECT value FROM settings WHERE key = ?").get(key);
     return row?.value ?? null;
   }
   setSetting(key, value) {
-    this.db.prepare(`
-      INSERT INTO settings(key, value) VALUES (?, ?)
-      ON CONFLICT(key) DO UPDATE SET value = excluded.value
-    `).run(key, value);
+    this.db.prepare(`INSERT INTO settings(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(key, value);
   }
 };
 
 // apps/daemon/src/projects.ts
-import { execFile } from "node:child_process";
 import { readFile, stat } from "node:fs/promises";
 import { basename as basename2 } from "node:path";
-import { promisify } from "node:util";
-var execFileAsync = promisify(execFile);
-async function gitMetadata(rootPath) {
-  try {
-    await execFileAsync("git", ["-C", rootPath, "rev-parse", "--show-toplevel"]);
-    const { stdout } = await execFileAsync("git", ["-C", rootPath, "branch", "--show-current"]);
-    return { branch: stdout.trim() || "HEAD", isGitRepository: true };
-  } catch {
-    return { branch: null, isGitRepository: false };
-  }
-}
 async function readState(path) {
   let lastError;
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -31575,7 +31588,7 @@ async function readState(path) {
       return JSON.parse(await readFile(path, "utf8"));
     } catch (error51) {
       lastError = error51;
-      if (attempt === 0) await new Promise((resolve4) => setTimeout(resolve4, 20));
+      if (attempt === 0) await new Promise((resolve3) => setTimeout(resolve3, 20));
     }
   }
   throw lastError;
@@ -31616,7 +31629,7 @@ var CodexProjectCatalog = class {
     } catch {
       return null;
     }
-    return { id, name, rootPath, ...await gitMetadata(rootPath) };
+    return { id, name, rootPath };
   }
 };
 
@@ -31630,10 +31643,7 @@ var CAPTURE_SCHEMA = {
       maxItems: 8,
       items: {
         type: "object",
-        properties: {
-          title: { type: "string" },
-          description: { type: "string" }
-        },
+        properties: { title: { type: "string" }, description: { type: "string" } },
         required: ["title", "description"],
         additionalProperties: false
       }
@@ -31642,29 +31652,29 @@ var CAPTURE_SCHEMA = {
   required: ["todos"],
   additionalProperties: false
 };
-var execFileAsync2 = promisify2(execFile2);
 function requireText(value, name) {
   if (typeof value !== "string" || !value.trim()) throw new Error(`${name} is required`);
   return value.trim();
 }
-var PlanService = class {
-  constructor(database = new PlanDatabase(), codex = new CodexAppServer(), projects = new CodexProjectCatalog()) {
+var WhomiService = class {
+  constructor(database = new WhomiDatabase(), codex = new CodexAppServer(), projectCatalog = new CodexProjectCatalog()) {
     this.database = database;
     this.codex = codex;
-    this.projects = projects;
+    this.projectCatalog = projectCatalog;
   }
   database;
   codex;
-  projects;
-  async overview(planId) {
-    const todos = this.database.listTodos(planId, true);
+  projectCatalog;
+  dispatchers = /* @__PURE__ */ new Map();
+  async overview(projectId) {
+    const todos = this.database.listTodos(projectId, true);
     const [codexProjects, codexAvailable, codexThreads] = await Promise.all([
-      this.projects.list(),
+      this.projectCatalog.list(),
       this.codex.available(),
       this.codex.listThreads().catch(() => [])
     ]);
     return {
-      plans: this.database.listPlans(),
+      projects: this.database.listProjects(),
       codexProjects,
       codexThreads,
       todos,
@@ -31676,252 +31686,36 @@ var PlanService = class {
       }
     };
   }
-  listPlans() {
-    return this.database.listPlans();
+  listProjects() {
+    return this.database.listProjects();
   }
   listCodexProjects() {
-    return this.projects.list();
+    return this.projectCatalog.list();
   }
-  createPlan(input) {
-    requireText(input.name, "name");
-    requireText(input.projectName, "projectName");
-    requireText(input.projectRoot, "projectRoot");
-    requireText(input.branch, "branch");
-    return this.database.createPlan(randomUUID(), input);
+  getProject(id) {
+    const project = this.database.getProject(id);
+    if (!project) throw new Error("Project not found");
+    return project;
   }
-  updatePlan(id, input) {
-    const plan = this.database.updatePlan(id, input);
-    if (!plan) throw new Error("Plan not found");
-    return plan;
+  createProject(input) {
+    const normalized = {
+      ...input,
+      name: requireText(input.name, "name"),
+      rootPath: requireText(input.rootPath, "rootPath")
+    };
+    return this.database.createProject(randomUUID(), normalized);
   }
-  listTodos(planId, includeEnded = true) {
-    return this.database.listTodos(planId, includeEnded);
+  updateProject(id, input) {
+    const project = this.database.updateProject(id, input);
+    if (!project) throw new Error("Project not found");
+    if (project.autoDispatch) this.kick(project.id);
+    return project;
+  }
+  listTodos(projectId, includeArchived = true) {
+    return this.database.listTodos(projectId, includeArchived);
   }
   getTodo(id) {
     const todo = this.database.getTodo(id);
-    if (!todo) throw new Error("Todo not found");
-    return todo;
-  }
-  createTodo(input) {
-    requireText(input.title, "title");
-    if (input.status === "queued" && !input.planId) {
-      throw new Error("Queued todos must be assigned to a Plan");
-    }
-    if (input.planId && !this.database.getPlan(input.planId)) throw new Error("Plan not found");
-    return this.database.createTodo(randomUUID(), input);
-  }
-  setStatus(id, status, planId) {
-    const current = this.getTodo(id);
-    if (status === "completed") {
-      throw new Error("Use complete_todo so completion includes threadId and turnId");
-    }
-    const targetPlanId = planId === void 0 ? current.planId : planId;
-    if ((status === "queued" || status === "running") && !targetPlanId) {
-      throw new Error(`${status} todos must be assigned to a Plan`);
-    }
-    const todo = this.database.updateTodoStatus(id, status, planId);
-    if (!todo) throw new Error("Todo not found");
-    return todo;
-  }
-  async capture(text, imagePath, planId) {
-    if (!text.trim() && !imagePath) throw new Error("Text or screenshot is required");
-    if (planId && !this.database.getPlan(planId)) throw new Error("Plan not found");
-    try {
-      let threadId = this.database.getSetting("controller_thread_id");
-      if (!threadId) {
-        threadId = await this.codex.startThread({
-          model: CAPTURE_MODEL,
-          approvalPolicy: "never",
-          sandbox: "read-only",
-          serviceName: "whomi_capture"
-        });
-        this.database.setSetting("controller_thread_id", threadId);
-        await this.codex.request("thread/name/set", { threadId, name: "Plan Inbox" });
-      } else {
-        await this.codex.resumeThread(threadId);
-        await this.codex.request("thread/name/set", { threadId, name: "Plan Inbox" });
-      }
-      const input = [
-        {
-          type: "text",
-          text: `\u628A\u4E0B\u9762\u7684\u5185\u5BB9\u63D0\u70BC\u4E3A\u53EF\u4EE5\u76F4\u63A5\u6267\u884C\u7684 Todo\u3002\u6807\u9898\u8981\u77ED\uFF0C\u63CF\u8FF0\u4FDD\u7559\u9A8C\u6536\u6761\u4EF6\uFF1B\u4E0D\u8981\u81C6\u9020\u9879\u76EE\u6216\u622A\u6B62\u65F6\u95F4\u3002
-
-${text.trim()}`
-        }
-      ];
-      if (imagePath) input.push({ type: "localImage", path: imagePath });
-      const turnId = await this.codex.startTurn({
-        threadId,
-        input,
-        model: CAPTURE_MODEL,
-        effort: "low",
-        outputSchema: CAPTURE_SCHEMA
-      });
-      const result2 = await this.codex.waitForTurn(turnId);
-      if (result2.status !== "completed") throw new Error(result2.error ?? `Capture turn ${result2.status}`);
-      const parsed = JSON.parse(result2.text);
-      const todos = parsed.todos.map(
-        (candidate) => this.createTodo({
-          title: candidate.title,
-          description: candidate.description,
-          planId: planId ?? null,
-          status: planId ? "queued" : "someday",
-          sourceType: imagePath ? "screenshot" : "text",
-          sourcePath: imagePath ?? null
-        })
-      );
-      return { todos, threadId, turnId, usedModel: true };
-    } catch (error51) {
-      const title = text.trim().split(/\r?\n/).find(Boolean)?.replace(/^[-*\d.)\s]+/, "").slice(0, 100) || "\u4ECE\u622A\u56FE\u6574\u7406\u4EFB\u52A1";
-      const todo = this.createTodo({
-        title,
-        description: text.trim(),
-        planId: planId ?? null,
-        status: planId ? "queued" : "someday",
-        sourceType: imagePath ? "screenshot" : "text",
-        sourcePath: imagePath ?? null
-      });
-      return {
-        todos: [todo],
-        threadId: this.database.getSetting("controller_thread_id"),
-        turnId: null,
-        usedModel: false,
-        warning: `\u8F7B\u6A21\u578B\u4E0D\u53EF\u7528\uFF0C\u5DF2\u6309\u539F\u6587\u521B\u5EFA\uFF1A${error51 instanceof Error ? error51.message : String(error51)}`
-      };
-    }
-  }
-  async launch(id) {
-    const todo = this.getTodo(id);
-    if (!todo.planId) throw new Error("Assign the todo to a Plan before launch");
-    let plan = this.database.getPlan(todo.planId);
-    if (!plan) throw new Error("Plan not found");
-    const cwd = plan.worktreePath || plan.projectRoot;
-    await access(cwd);
-    let threadId = plan.threadId;
-    if (!threadId) {
-      threadId = await this.codex.startThread({
-        model: EXECUTION_MODEL,
-        cwd,
-        approvalPolicy: "never",
-        sandbox: "workspace-write",
-        serviceName: "whomi_execution"
-      });
-      await this.codex.request("thread/name/set", {
-        threadId,
-        name: `${plan.projectName} \xB7 ${plan.name}`
-      });
-      plan = this.updatePlan(plan.id, { threadId });
-    } else {
-      await this.codex.resumeThread(threadId);
-    }
-    const turnId = await this.codex.startTurn({
-      threadId,
-      cwd,
-      model: EXECUTION_MODEL,
-      effort: "medium",
-      input: [
-        {
-          type: "text",
-          text: [
-            `\u6267\u884C Plan\u300C${plan.name}\u300D\u4E2D\u7684 Todo\uFF1A${todo.title}`,
-            todo.description ? `
-\u80CC\u666F\u4E0E\u9A8C\u6536\u6761\u4EF6\uFF1A
-${todo.description}` : "",
-            "\n\u5B8C\u6210\u5B9E\u73B0\u4E0E\u5FC5\u8981\u9A8C\u8BC1\u3002\u4E0D\u8981\u4EC5\u6C47\u62A5\u8BA1\u5212\uFF1B\u9047\u5230\u771F\u6B63\u9700\u8981\u7528\u6237\u9009\u62E9\u7684\u963B\u585E\u518D\u8BE2\u95EE\u3002"
-          ].join("")
-        }
-      ]
-    });
-    const run = {
-      id: randomUUID(),
-      todoId: todo.id,
-      planId: plan.id,
-      threadId,
-      turnId,
-      status: "running",
-      startedAt: (/* @__PURE__ */ new Date()).toISOString(),
-      finishedAt: null,
-      error: null
-    };
-    this.database.createRun(run);
-    const runningTodo = this.setStatus(todo.id, "running");
-    void this.codex.waitForTurn(turnId, 24 * 60 * 60 * 1e3).then((snapshot) => {
-      this.database.updateRunByTurn(turnId, snapshot.status, snapshot.error);
-    }).catch((error51) => {
-      this.database.updateRunByTurn(turnId, "failed", String(error51));
-    });
-    return { todo: runningTodo, plan, run };
-  }
-  async prepareCurrentLaunch(id) {
-    const todo = this.getTodo(id);
-    if (todo.status !== "queued") throw new Error("Only queued Todos can be started");
-    if (!todo.planId) throw new Error("Assign the Todo to a Plan before starting it");
-    const plan = this.database.getPlan(todo.planId);
-    if (!plan) throw new Error("Plan not found");
-    if (!plan.threadId) {
-      throw new Error("Bind this Plan to the current Codex task before starting from the plugin UI");
-    }
-    const cwd = plan.worktreePath || plan.projectRoot;
-    const info = await stat2(cwd);
-    if (!info.isDirectory()) throw new Error("Plan worktree path is not a directory");
-    const marker = `[whomi todo=${todo.id} run=${randomUUID()}]`;
-    const prompt = [
-      marker,
-      `\u8BF7\u5728\u5F53\u524D Codex task \u4E2D\u6267\u884C Plan\u300C${plan.name}\u300D\u7684 Todo\u300C${todo.title}\u300D\u3002`,
-      `Todo ID\uFF1A${todo.id}`,
-      `Plan ID\uFF1A${plan.id}`,
-      `\u5DE5\u4F5C\u76EE\u5F55\uFF1A${cwd}`,
-      `Git \u5206\u652F\uFF1A${plan.branch}`,
-      todo.description ? `\u80CC\u666F\u4E0E\u9A8C\u6536\u6761\u4EF6\uFF1A
-${todo.description}` : "",
-      "\u5F00\u59CB\u5B9E\u9645\u4FEE\u6539\u524D\uFF0C\u8C03\u7528 whomi \u7684 register_current_todo\uFF0C\u4F20\u5165\u4E0A\u9762\u7684 Todo ID \u548C\u5173\u8054\u6807\u8BB0\u3002\u5B83\u4F1A\u628A\u5F53\u524D\u53EF\u89C1 turn \u8BB0\u4E3A\u8FD0\u884C\u8BB0\u5F55\uFF1B\u5982\u679C\u63D0\u793A task \u7ED1\u5B9A\u4E0D\u4E00\u81F4\uFF0C\u8BF7\u5148\u544A\u8BC9\u7528\u6237\uFF0C\u4E0D\u8981\u53E6\u8D77 task\u3002",
-      "\u968F\u540E\u76F4\u63A5\u5B8C\u6210\u5B9E\u73B0\u548C\u5FC5\u8981\u9A8C\u8BC1\u3002\u4E0D\u8981\u53EA\u6C47\u62A5\u8BA1\u5212\uFF1B\u53EA\u6709\u771F\u6B63\u9700\u8981\u7528\u6237\u9009\u62E9\u65F6\u518D\u8BE2\u95EE\u3002\u4E0D\u8981\u731C\u6D4B\u6216\u4F2A\u9020 taskId/turnId\u3002"
-    ].filter(Boolean).join("\n\n");
-    return { todo, plan, cwd, marker, prompt };
-  }
-  async registerCurrentLaunch(id, marker) {
-    const todo = this.getTodo(id);
-    if (!todo.planId) throw new Error("Assign the Todo to a Plan before starting it");
-    const plan = this.database.getPlan(todo.planId);
-    if (!plan) throw new Error("Plan not found");
-    if (!plan.threadId) throw new Error("Plan is not bound to a Codex task");
-    if (!marker.startsWith(`[whomi todo=${todo.id} run=`) || !marker.endsWith("]")) {
-      throw new Error("Invalid Todo execution marker");
-    }
-    const matchedTurn = await this.codex.findTurnContainingUserText(plan.threadId, marker);
-    if (!matchedTurn) {
-      throw new Error("The visible message was not found in the Plan-bound task; bind the Plan to the current task and try again");
-    }
-    const existingRun = this.database.getRunByTurn(matchedTurn.id);
-    if (existingRun) {
-      if (existingRun.todoId !== todo.id) throw new Error("This Codex turn is already linked to another Todo");
-      const currentTodo = todo.status === "queued" ? this.setStatus(todo.id, "running") : todo;
-      return { todo: currentTodo, plan, run: existingRun };
-    }
-    if (todo.status !== "queued" && todo.status !== "running") {
-      throw new Error("Todo is no longer queued or running");
-    }
-    const run = {
-      id: randomUUID(),
-      todoId: todo.id,
-      planId: plan.id,
-      threadId: plan.threadId,
-      turnId: matchedTurn.id,
-      status: "running",
-      startedAt: (/* @__PURE__ */ new Date()).toISOString(),
-      finishedAt: null,
-      error: null
-    };
-    this.database.createRun(run);
-    const runningTodo = todo.status === "running" ? todo : this.setStatus(todo.id, "running");
-    return { todo: runningTodo, plan, run };
-  }
-  complete(id, input) {
-    const run = this.database.latestRun(id);
-    const threadId = input.threadId ?? run?.threadId;
-    const turnId = input.turnId ?? run?.turnId;
-    if (!threadId || !turnId) throw new Error("Completion requires threadId and turnId");
-    const todo = this.database.completeTodo(id, threadId, turnId, input.summary?.trim() ?? "");
     if (!todo) throw new Error("Todo not found");
     return todo;
   }
@@ -31942,1408 +31736,265 @@ ${todo.description}` : "",
       return { title: todo.title, answer: todo.completionSummary, artifacts: [] };
     }
   }
-  async ensureWorktree(planId, baseRef = "HEAD") {
-    const plan = this.database.getPlan(planId);
-    if (!plan) throw new Error("Plan not found");
-    const projectRoot = resolve3(plan.projectRoot);
-    const worktreePath = resolve3(plan.worktreePath || plan.projectRoot);
-    if (!isAbsolute2(plan.projectRoot) || !isAbsolute2(plan.worktreePath || plan.projectRoot)) {
-      throw new Error("Project root and worktree path must be absolute");
+  addTodo(input) {
+    const projectId = this.resolveProject(input.projectId, input.projectName);
+    const status = input.status ?? "draft";
+    if (status === "ready" && !projectId) throw new Error("Ready todos must belong to a Project");
+    const todo = this.database.createTodo(randomUUID(), {
+      ...input,
+      title: requireText(input.title, "title"),
+      projectId,
+      status
+    });
+    const dispatchStarted = status === "ready" && Boolean(projectId && this.getProject(projectId).autoDispatch);
+    if (dispatchStarted && projectId) this.kick(projectId);
+    return { todo, dispatchStarted };
+  }
+  createTodo(input) {
+    return this.addTodo(input).todo;
+  }
+  resolveProject(projectId, projectName) {
+    if (projectId) return this.getProject(projectId).id;
+    if (!projectName?.trim()) return null;
+    const project = this.database.findProjectByName(projectName.trim());
+    if (!project) throw new Error(`Project not found: ${projectName.trim()}`);
+    return project.id;
+  }
+  setStatus(id, status, projectId) {
+    const current = this.getTodo(id);
+    const targetProjectId = projectId === void 0 ? current.projectId : projectId;
+    if (["ready", "sending", "running"].includes(status) && !targetProjectId) {
+      throw new Error(`${status} todos must belong to a Project`);
     }
-    await access(projectRoot);
+    if (status === "sending" || status === "running") {
+      throw new Error("sending and running are managed by the dispatcher");
+    }
+    const todo = this.database.updateTodoStatus(id, status, projectId);
+    if (!todo) throw new Error("Todo not found");
+    if (status === "ready" && todo.projectId && this.getProject(todo.projectId).autoDispatch) this.kick(todo.projectId);
+    return todo;
+  }
+  async capture(text, imagePath, projectId) {
+    if (!text.trim() && !imagePath) throw new Error("Text or screenshot is required");
+    if (projectId) this.getProject(projectId);
     try {
-      const info = await stat2(worktreePath);
-      if (!info.isDirectory()) throw new Error("Worktree path exists but is not a directory");
-      return plan;
+      let threadId = this.database.getSetting("controller_thread_id");
+      if (!threadId) {
+        threadId = await this.codex.startThread({ model: CAPTURE_MODEL, approvalPolicy: "never", sandbox: "read-only", serviceName: "whomi_capture" });
+        this.database.setSetting("controller_thread_id", threadId);
+        await this.codex.request("thread/name/set", { threadId, name: "whomi Inbox" });
+      } else {
+        await this.codex.resumeThread(threadId);
+      }
+      const input = [{ type: "text", text: `\u628A\u4E0B\u9762\u7684\u5185\u5BB9\u63D0\u70BC\u4E3A\u53EF\u4EE5\u76F4\u63A5\u6267\u884C\u7684 Todo\u3002\u6807\u9898\u8981\u77ED\uFF0C\u63CF\u8FF0\u4FDD\u7559\u9A8C\u6536\u6761\u4EF6\uFF1B\u4E0D\u8981\u81C6\u9020\u9879\u76EE\u6216\u622A\u6B62\u65F6\u95F4\u3002
+
+${text.trim()}` }];
+      if (imagePath) input.push({ type: "localImage", path: imagePath });
+      const turnId = await this.codex.startTurn({ threadId, input, model: CAPTURE_MODEL, effort: "low", outputSchema: CAPTURE_SCHEMA });
+      const result2 = await this.codex.waitForTurn(turnId);
+      if (result2.status !== "completed") throw new Error(result2.error ?? `Capture turn ${result2.status}`);
+      const parsed = JSON.parse(result2.text);
+      const todos = parsed.todos.map((candidate) => this.addTodo({
+        title: candidate.title,
+        description: candidate.description,
+        projectId: projectId ?? null,
+        status: "draft",
+        sourceType: imagePath ? "screenshot" : "text",
+        sourcePath: imagePath ?? null
+      }).todo);
+      return { todos, threadId, turnId, usedModel: true };
     } catch (error51) {
-      if (error51.code !== "ENOENT") throw error51;
+      const title = text.trim().split(/\r?\n/).find(Boolean)?.replace(/^[-*\d.)\s]+/, "").slice(0, 100) || "\u4ECE\u622A\u56FE\u6574\u7406\u4EFB\u52A1";
+      const todo = this.addTodo({ title, description: text.trim(), projectId: projectId ?? null, status: "draft", sourceType: imagePath ? "screenshot" : "text", sourcePath: imagePath ?? null }).todo;
+      return {
+        todos: [todo],
+        threadId: this.database.getSetting("controller_thread_id"),
+        turnId: null,
+        usedModel: false,
+        warning: `\u8F7B\u6A21\u578B\u4E0D\u53EF\u7528\uFF0C\u5DF2\u6309\u539F\u6587\u521B\u5EFA\uFF1A${error51 instanceof Error ? error51.message : String(error51)}`
+      };
     }
-    await execFileAsync2("git", ["-C", projectRoot, "check-ref-format", "--branch", plan.branch]);
-    let branchExists = true;
-    try {
-      await execFileAsync2("git", ["-C", projectRoot, "show-ref", "--verify", "--quiet", `refs/heads/${plan.branch}`]);
-    } catch {
-      branchExists = false;
+  }
+  startProjectQueue(projectId) {
+    const project = this.getProject(projectId);
+    const started = !this.dispatchers.has(projectId);
+    this.kick(projectId);
+    return { project, started };
+  }
+  retryTodo(id) {
+    const todo = this.getTodo(id);
+    if (todo.status !== "failed") throw new Error("Only failed Todos can be retried");
+    return this.setStatus(id, "ready");
+  }
+  kick(projectId) {
+    if (this.dispatchers.has(projectId)) return;
+    const task = this.runQueue(projectId).finally(() => this.dispatchers.delete(projectId));
+    this.dispatchers.set(projectId, task);
+    void task;
+  }
+  async runQueue(projectId) {
+    while (true) {
+      const todo = this.database.claimNextReady(projectId);
+      if (!todo) return;
+      try {
+        const finished = await this.sendTodo(todo);
+        if (finished.status !== "completed") {
+          const message = finished.error ?? `Codex turn ${finished.status}`;
+          this.database.updateTodoStatus(todo.id, "failed", void 0, message);
+          return;
+        }
+        this.database.completeTodo(todo.id, finished.threadId, finished.turnId, finished.text);
+      } catch (error51) {
+        this.database.updateTodoStatus(todo.id, "failed", void 0, error51 instanceof Error ? error51.message : String(error51));
+        return;
+      }
     }
-    if (branchExists) {
-      await execFileAsync2("git", ["-C", projectRoot, "worktree", "add", worktreePath, plan.branch]);
+  }
+  async sendTodo(todo) {
+    if (!todo.projectId) throw new Error("Todo has no Project");
+    let project = this.getProject(todo.projectId);
+    let threadId = project.targetThreadId;
+    if (!threadId) {
+      threadId = await this.codex.startThread({
+        model: EXECUTION_MODEL,
+        cwd: project.rootPath,
+        approvalPolicy: "never",
+        sandbox: "workspace-write",
+        serviceName: "whomi_dispatch"
+      });
+      await this.codex.request("thread/name/set", { threadId, name: project.name });
+      project = this.updateProject(project.id, { targetThreadId: threadId });
     } else {
-      await execFileAsync2("git", ["-C", projectRoot, "worktree", "add", "-b", plan.branch, worktreePath, baseRef]);
+      await this.codex.resumeThread(threadId);
     }
-    return this.updatePlan(plan.id, { worktreePath });
+    const turnId = await this.codex.startTurn({
+      threadId,
+      cwd: project.rootPath,
+      model: EXECUTION_MODEL,
+      effort: "medium",
+      input: [{
+        type: "text",
+        text: [
+          `\u6267\u884C whomi \u9879\u76EE\u300C${project.name}\u300D\u4E2D\u7684 Todo\uFF1A${todo.title}`,
+          todo.description ? `
+\u80CC\u666F\u4E0E\u9A8C\u6536\u6761\u4EF6\uFF1A
+${todo.description}` : "",
+          "\n\u8BF7\u76F4\u63A5\u5B8C\u6210\u5DE5\u4F5C\u5E76\u505A\u5FC5\u8981\u9A8C\u8BC1\uFF1B\u771F\u6B63\u9700\u8981\u7528\u6237\u9009\u62E9\u65F6\u518D\u8BE2\u95EE\u3002"
+        ].join("")
+      }]
+    });
+    const run = {
+      id: randomUUID(),
+      todoId: todo.id,
+      projectId: project.id,
+      threadId,
+      turnId,
+      status: "running",
+      startedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      finishedAt: null,
+      error: null
+    };
+    this.database.createRun(run);
+    this.database.updateTodoStatus(todo.id, "running");
+    const result2 = await this.codex.waitForTurn(turnId, 24 * 60 * 60 * 1e3);
+    this.database.updateRunByTurn(turnId, result2.status, result2.error);
+    return { ...result2, threadId, turnId };
   }
 };
 
 // apps/daemon/src/widget.ts
-var WHOMI_URI = "ui://whomi/app-v1.html";
+var WHOMI_URI = "ui://whomi/dashboard-v3.html";
 var WHOMI_HTML = String.raw`<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>whomi</title>
   <style>
-    :root {
-      color-scheme: light dark;
-      --bg: #f3f4f0;
-      --surface: #fbfcf9;
-      --raised: #ffffff;
-      --ink: #20251e;
-      --muted: #72786f;
-      --faint: #9ca298;
-      --line: #dde2da;
-      --line-strong: #cbd2c7;
-      --moss: #526a42;
-      --moss-hover: #465a39;
-      --moss-soft: #e6eddf;
-      --amber: #b57b28;
-      --blue: #5e7f9b;
-      --purple: #7a6391;
-      --red: #985d57;
-      --shadow: 0 1px 1px rgb(27 35 24 / 4%), 0 8px 24px rgb(27 35 24 / 6%);
-    }
-
-    * { box-sizing: border-box; }
-    html { min-width: 300px; min-height: 100%; -webkit-font-smoothing: antialiased; }
-    body {
-      min-height: 100%;
-      margin: 0;
-      color: var(--ink);
-      background: var(--bg);
-      font: 13px/1.45 Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      text-rendering: optimizeLegibility;
-    }
-    button, input, textarea, select { font: inherit; }
-    button, select { color: inherit; }
-    button { -webkit-tap-highlight-color: transparent; }
-    button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
-      outline: 2px solid color-mix(in srgb, var(--moss) 58%, transparent);
-      outline-offset: 2px;
-    }
-
-    .app { min-height: 100vh; padding: 10px; }
-    .shell {
-      min-height: calc(100vh - 20px);
-      overflow: hidden;
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      box-shadow: var(--shadow);
-    }
-    .topbar {
-      position: sticky;
-      z-index: 5;
-      top: 0;
-      display: flex;
-      min-height: 58px;
-      align-items: center;
-      gap: 10px;
-      padding: 9px 12px;
-      background: color-mix(in srgb, var(--surface) 94%, transparent);
-      border-bottom: 1px solid var(--line);
-      backdrop-filter: blur(14px);
-    }
-    .mark {
-      display: grid;
-      width: 34px;
-      height: 34px;
-      flex: 0 0 34px;
-      place-items: center;
-      color: white;
-      background: #455a39;
-      border-radius: 10px;
-      box-shadow: inset 0 0 0 1px rgb(255 255 255 / 12%), 0 2px 7px rgb(43 57 35 / 18%);
-    }
-    .mark svg { width: 18px; height: 18px; }
-    .title { min-width: 0; flex: 1; }
-    .title strong { display: block; font-size: 13px; font-weight: 720; letter-spacing: -.015em; }
-    .title span { display: block; overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-    .topActions { display: flex; align-items: center; gap: 4px; }
-    .iconButton {
-      display: inline-grid;
-      min-width: 40px;
-      height: 40px;
-      padding: 0;
-      place-items: center;
-      color: var(--muted);
-      background: transparent;
-      border: 0;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: color 130ms ease, background-color 130ms ease, transform 90ms ease;
-    }
-    .iconButton:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 6%, transparent); }
-    .iconButton:active { transform: scale(.96); }
-    .iconButton svg { width: 17px; height: 17px; }
-
-    .content { display: grid; gap: 12px; padding: 12px; }
-    .lane {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      align-items: center;
-      gap: 8px;
-    }
-    .laneSelect {
-      position: relative;
-      display: flex;
-      min-width: 0;
-      height: 42px;
-      align-items: center;
-      gap: 8px;
-      padding: 0 32px 0 11px;
-      background: var(--raised);
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      box-shadow: 0 1px 2px rgb(30 37 27 / 3%);
-    }
-    .laneSelect svg { width: 16px; height: 16px; flex: 0 0 auto; color: var(--moss); }
-    .laneSelect select {
-      min-width: 0;
-      width: 100%;
-      height: 100%;
-      padding: 0;
-      background: transparent;
-      border: 0;
-      outline: 0;
-      appearance: none;
-      cursor: pointer;
-      font-weight: 630;
-    }
-    .laneSelect .chevron { position: absolute; right: 10px; width: 14px; pointer-events: none; color: var(--muted); }
-    .newPlanButton {
-      display: inline-flex;
-      min-width: 42px;
-      height: 42px;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 0 11px;
-      color: var(--moss);
-      background: var(--moss-soft);
-      border: 1px solid color-mix(in srgb, var(--moss) 18%, var(--line));
-      border-radius: 10px;
-      cursor: pointer;
-      font-size: 11px;
-      font-weight: 680;
-      transition: background-color 130ms ease, transform 90ms ease;
-    }
-    .newPlanButton:hover { background: color-mix(in srgb, var(--moss-soft) 82%, var(--moss) 8%); }
-    .newPlanButton:active { transform: scale(.96); }
-    .newPlanButton svg { width: 15px; height: 15px; }
-
-    .binding {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 7px 10px;
-      padding: 10px 11px;
-      color: var(--muted);
-      background: color-mix(in srgb, var(--ink) 3%, var(--surface));
-      border-radius: 10px;
-    }
-    .binding strong { overflow: hidden; color: var(--ink); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-    .binding code { overflow: hidden; font: 9.5px ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; white-space: nowrap; }
-    .binding span { color: var(--moss); font-size: 10px; font-weight: 680; white-space: nowrap; }
-    .bindingNote { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 9.5px; line-height: 1.45; text-wrap: pretty; }
-    .routePicker { display: grid; grid-column: 1 / -1; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; }
-    .routePicker > span { color: var(--muted); font-size: 9.5px; }
-    .routePicker select { width: 100%; height: 32px; padding: 0 9px; color: var(--ink); background: var(--raised); border: 1px solid var(--line); border-radius: 8px; outline: 0; }
-
-    .capture {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 8px;
-      padding: 9px;
-      background: var(--raised);
-      border: 1px solid var(--line);
-      border-radius: 13px;
-      box-shadow: 0 1px 2px rgb(30 37 27 / 3%);
-    }
-    .captureMain { min-width: 0; }
-    .capture input[type="text"] {
-      width: 100%;
-      height: 40px;
-      padding: 0 10px;
-      color: var(--ink);
-      background: color-mix(in srgb, var(--ink) 3%, var(--raised));
-      border: 1px solid transparent;
-      border-radius: 8px;
-      outline: 0;
-      transition: border-color 130ms ease, background-color 130ms ease, box-shadow 130ms ease;
-    }
-    .capture input[type="text"]:focus {
-      background: var(--raised);
-      border-color: color-mix(in srgb, var(--moss) 42%, var(--line));
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--moss) 9%, transparent);
-    }
-    .capture input[type="text"]::placeholder { color: var(--faint); }
-    .captureMeta { display: flex; min-height: 30px; align-items: center; gap: 7px; padding: 6px 2px 0; }
-    .captureActions { display: flex; align-items: center; gap: 6px; }
-    .attachmentButton {
-      display: inline-flex;
-      min-height: 30px;
-      max-width: 180px;
-      align-items: center;
-      gap: 5px;
-      padding: 0 8px;
-      overflow: hidden;
-      color: var(--muted);
-      background: color-mix(in srgb, var(--ink) 4%, transparent);
-      border: 1px solid color-mix(in srgb, var(--ink) 6%, var(--line));
-      border-radius: 7px;
-      cursor: pointer;
-      font-size: 9.5px;
-      font-weight: 650;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      transition: color 130ms ease, background-color 130ms ease, transform 90ms ease;
-    }
-    .attachmentButton:hover, .attachmentButton.active { color: var(--moss); background: var(--moss-soft); }
-    .attachmentButton:active { transform: scale(.96); }
-    .attachmentButton svg { width: 13px; height: 13px; flex: 0 0 auto; }
-    .captureHint { overflow: hidden; color: var(--faint); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
-    .primaryButton {
-      display: inline-flex;
-      min-width: 76px;
-      height: 40px;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 0 12px;
-      color: white;
-      background: var(--moss);
-      border: 1px solid color-mix(in srgb, var(--moss) 88%, black);
-      border-radius: 8px;
-      box-shadow: inset 0 1px 0 rgb(255 255 255 / 14%), 0 2px 5px rgb(48 66 37 / 16%);
-      cursor: pointer;
-      font-size: 11px;
-      font-weight: 680;
-      transition: background-color 130ms ease, box-shadow 130ms ease, transform 90ms ease, opacity 130ms ease;
-    }
-    .primaryButton:hover:not(:disabled) { background: var(--moss-hover); box-shadow: inset 0 1px 0 rgb(255 255 255 / 12%), 0 4px 9px rgb(48 66 37 / 20%); }
-    .primaryButton:active:not(:disabled) { transform: scale(.96); }
-    .primaryButton:disabled { opacity: .48; cursor: default; }
-    .primaryButton svg { width: 15px; height: 15px; }
-    .smartButton {
-      display: inline-flex;
-      min-width: 64px;
-      height: 40px;
-      align-items: center;
-      justify-content: center;
-      padding: 0 11px;
-      color: var(--moss);
-      background: var(--moss-soft);
-      border: 1px solid color-mix(in srgb, var(--moss) 18%, var(--line));
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 10.5px;
-      font-weight: 680;
-      transition: background-color 130ms ease, transform 90ms ease, opacity 130ms ease;
-    }
-    .smartButton:hover:not(:disabled) { background: color-mix(in srgb, var(--moss-soft) 82%, var(--moss) 8%); }
-    .smartButton:active:not(:disabled) { transform: scale(.96); }
-    .smartButton:disabled { opacity: .48; cursor: default; }
-
-    .statusTabs {
-      display: flex;
-      gap: 5px;
-      padding: 3px;
-      overflow-x: auto;
-      background: color-mix(in srgb, var(--ink) 4%, transparent);
-      border-radius: 11px;
-      scrollbar-width: none;
-    }
-    .statusTabs::-webkit-scrollbar { display: none; }
-    .statusTab {
-      display: inline-flex;
-      min-width: 62px;
-      min-height: 40px;
-      flex: 1 0 auto;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 0 9px;
-      color: var(--muted);
-      background: transparent;
-      border: 0;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 10.5px;
-      font-weight: 620;
-      transition: color 130ms ease, background-color 130ms ease, box-shadow 130ms ease, transform 90ms ease;
-    }
-    .statusTab:hover { color: var(--ink); }
-    .statusTab.active { color: var(--ink); background: var(--raised); box-shadow: 0 1px 3px rgb(28 35 25 / 9%); }
-    .statusTab:active { transform: scale(.96); }
-    .statusTab em {
-      min-width: 19px;
-      padding: 1px 5px;
-      background: color-mix(in srgb, currentColor 8%, transparent);
-      border-radius: 999px;
-      font-size: 9px;
-      font-style: normal;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .list { display: flex; flex-direction: column; gap: 8px; }
-    .todo {
-      position: relative;
-      padding: 11px;
-      background: var(--raised);
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      box-shadow: 0 1px 1px rgb(27 35 24 / 3%), 0 5px 16px rgb(27 35 24 / 4%);
-      transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease, opacity 130ms ease;
-    }
-    .todo:hover { border-color: var(--line-strong); box-shadow: 0 2px 3px rgb(27 35 24 / 4%), 0 10px 24px rgb(27 35 24 / 7%); transform: translateY(-1px); }
-    .todo.busy { opacity: .62; pointer-events: none; }
-    .todoTop { display: flex; align-items: center; gap: 7px; }
-    .dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: var(--faint); box-shadow: 0 0 0 3px color-mix(in srgb, var(--faint) 12%, transparent); }
-    .dot.waiting { background: var(--amber); }
-    .dot.queued { background: var(--blue); }
-    .dot.running { background: var(--purple); }
-    .dot.completed { background: var(--moss); }
-    .dot.ended { background: var(--red); }
-    .planName { min-width: 0; flex: 1; overflow: hidden; color: var(--muted); font-size: 9.5px; font-weight: 630; text-overflow: ellipsis; white-space: nowrap; }
-    .statusSelect {
-      height: 28px;
-      max-width: 84px;
-      padding: 0 7px;
-      color: var(--muted);
-      background: color-mix(in srgb, var(--ink) 4%, transparent);
-      border: 1px solid color-mix(in srgb, var(--ink) 6%, var(--line));
-      border-radius: 7px;
-      outline: 0;
-      cursor: pointer;
-      font-size: 9.5px;
-    }
-    .todo h3 { margin: 8px 0 0; font-size: 13px; font-weight: 670; letter-spacing: -.012em; line-height: 1.4; overflow-wrap: anywhere; text-wrap: pretty; }
-    .todo p { display: -webkit-box; margin: 5px 0 0; overflow: hidden; color: var(--muted); font-size: 10.5px; line-height: 1.5; -webkit-box-orient: vertical; -webkit-line-clamp: 2; text-wrap: pretty; }
-    .todoFooter { display: flex; min-height: 31px; align-items: flex-end; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid color-mix(in srgb, var(--line) 68%, transparent); }
-    .todoFooter time { flex: 1; color: var(--faint); font-size: 9px; font-variant-numeric: tabular-nums; }
-    .smallButton {
-      display: inline-flex;
-      min-height: 30px;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      padding: 0 9px;
-      color: var(--muted);
-      background: color-mix(in srgb, var(--ink) 4%, transparent);
-      border: 1px solid color-mix(in srgb, var(--ink) 6%, var(--line));
-      border-radius: 7px;
-      cursor: pointer;
-      font-size: 9.5px;
-      font-weight: 670;
-      transition: color 130ms ease, background-color 130ms ease, transform 90ms ease;
-    }
-    .smallButton:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 7%, transparent); }
-    .smallButton:active { transform: scale(.96); }
-    .smallButton.run { color: white; background: var(--blue); border-color: color-mix(in srgb, var(--blue) 82%, black); }
-    .smallButton.done { color: var(--moss); background: var(--moss-soft); border-color: color-mix(in srgb, var(--moss) 18%, var(--line)); }
-    .smallButton svg { width: 13px; height: 13px; }
-
-    .empty {
-      display: grid;
-      min-height: 164px;
-      place-items: center;
-      align-content: center;
-      gap: 8px;
-      padding: 20px;
-      color: var(--muted);
-      border: 1px dashed var(--line-strong);
-      border-radius: 12px;
-      text-align: center;
-    }
-    .empty svg { width: 25px; height: 25px; color: var(--faint); }
-    .empty strong { color: var(--ink); font-size: 12px; }
-    .empty p { max-width: 260px; margin: 0; font-size: 10px; text-wrap: pretty; }
-    .loading { min-height: 190px; }
-    .spinner { width: 20px; height: 20px; border: 2px solid var(--line); border-top-color: var(--moss); border-radius: 50%; animation: spin 850ms linear infinite; }
-
-    .planForm {
-      display: none;
-      gap: 9px;
-      padding: 12px;
-      background: var(--raised);
-      border: 1px solid var(--line);
-      border-radius: 13px;
-      box-shadow: var(--shadow);
-    }
-    .planForm.open { display: grid; }
-    .planForm header { display: flex; align-items: center; justify-content: space-between; }
-    .planForm h2 { margin: 0; font-size: 14px; letter-spacing: -.02em; text-wrap: balance; }
-    .planForm label { display: grid; gap: 5px; }
-    .planForm label span { color: var(--muted); font-size: 9.5px; font-weight: 650; }
-    .planForm input, .planForm select {
-      width: 100%;
-      height: 40px;
-      padding: 0 10px;
-      color: var(--ink);
-      background: color-mix(in srgb, var(--ink) 3%, var(--raised));
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      outline: 0;
-    }
-    .planForm select { appearance: none; cursor: pointer; }
-    .planForm input:focus, .planForm select:focus { border-color: color-mix(in srgb, var(--moss) 42%, var(--line)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--moss) 9%, transparent); }
-    .planFormGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
-    .planFormGrid .wide { grid-column: 1 / -1; }
-    .projectPicker { position: relative; }
-    .projectPicker .chevron { position: absolute; right: 10px; bottom: 13px; width: 14px; pointer-events: none; color: var(--muted); }
-    .manualProjectFields { display: none; grid-column: 1 / -1; grid-template-columns: 1fr 1fr; gap: 9px; }
-    .manualProjectFields.open { display: grid; }
-    .formActions { display: flex; justify-content: flex-end; gap: 7px; padding-top: 2px; }
-
-    .receiptOverlay {
-      position: fixed;
-      z-index: 15;
-      inset: 0;
-      display: grid;
-      padding: 16px;
-      place-items: center;
-      background: rgb(18 22 17 / 38%);
-      backdrop-filter: blur(6px);
-    }
-    .receiptDialog {
-      width: min(460px, 100%);
-      max-height: min(620px, calc(100vh - 32px));
-      padding: 16px;
-      overflow-y: auto;
-      background: var(--raised);
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      box-shadow: 0 24px 70px rgb(16 21 14 / 24%), 0 2px 8px rgb(16 21 14 / 10%);
-    }
-    .receiptHeader { display: flex; align-items: flex-start; gap: 12px; }
-    .receiptHeading { min-width: 0; flex: 1; }
-    .receiptEyebrow { display: inline-flex; align-items: center; gap: 5px; color: var(--moss); font-size: 9.5px; font-weight: 720; }
-    .receiptEyebrow svg { width: 13px; height: 13px; }
-    .receiptHeading h2 { margin: 4px 0 0; font-size: 16px; line-height: 1.35; letter-spacing: -.02em; text-wrap: balance; }
-    .receiptClose { margin: -4px -4px 0 0; }
-    .resultSection { display: grid; gap: 7px; margin-top: 16px; }
-    .resultSectionHeader { display: flex; min-height: 28px; align-items: center; justify-content: space-between; gap: 8px; }
-    .resultSectionHeader h3 { margin: 0; font-size: 10px; font-weight: 720; letter-spacing: .02em; }
-    .resultCopyButton { min-height: 28px; padding: 0 8px; }
-    .answerCard {
-      padding: 12px;
-      color: var(--ink);
-      background: color-mix(in srgb, var(--moss) 7%, var(--surface));
-      border: 1px solid color-mix(in srgb, var(--moss) 14%, var(--line));
-      border-radius: 11px;
-      font-size: 11px;
-      line-height: 1.6;
-      overflow-wrap: anywhere;
-      white-space: pre-wrap;
-      text-wrap: pretty;
-    }
-    .answerCard.muted { color: var(--muted); }
-    .artifactList { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
-    .artifactItem {
-      display: grid;
-      grid-template-columns: 28px minmax(0, 1fr) 34px;
-      align-items: center;
-      gap: 8px;
-      min-height: 52px;
-      padding: 7px;
-      background: color-mix(in srgb, var(--ink) 3%, var(--surface));
-      border: 1px solid var(--line);
-      border-radius: 10px;
-    }
-    .artifactMark { display: grid; width: 28px; height: 28px; place-items: center; color: var(--moss); background: var(--moss-soft); border-radius: 8px; }
-    .artifactMark svg { width: 14px; height: 14px; }
-    .artifactText { min-width: 0; }
-    .artifactText strong { display: block; overflow: hidden; font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
-    .artifactText code {
-      display: block;
-      margin-top: 2px;
-      overflow: hidden;
-      color: var(--muted);
-      font: 8.5px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .copyButton { min-width: 34px; height: 34px; color: var(--muted); background: transparent; border: 0; border-radius: 8px; }
-    .copyButton:hover { color: var(--moss); background: var(--moss-soft); }
-    .resultEmpty { padding: 12px; color: var(--muted); background: color-mix(in srgb, var(--ink) 3%, var(--surface)); border: 1px dashed var(--line-strong); border-radius: 10px; font-size: 10px; text-align: center; }
-    .resultLoading { display: grid; min-height: 170px; place-items: center; align-content: center; gap: 10px; color: var(--muted); font-size: 10px; }
-    .receiptActions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 14px; }
-
-    .toast {
-      position: fixed;
-      z-index: 20;
-      right: 18px;
-      bottom: 18px;
-      max-width: min(320px, calc(100vw - 36px));
-      padding: 10px 12px;
-      color: white;
-      background: #283124;
-      border-radius: 10px;
-      box-shadow: 0 16px 42px rgb(20 25 18 / 24%);
-      opacity: 0;
-      transform: translateY(8px);
-      pointer-events: none;
-      transition: opacity 150ms ease, transform 150ms ease;
-      text-wrap: pretty;
-    }
-    .toast.show { opacity: 1; transform: translateY(0); }
-    .toast.error { background: #743e39; }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    @media (min-width: 720px) {
-      .app { padding: 14px; }
-      .shell { min-height: calc(100vh - 28px); }
-      .content { grid-template-columns: minmax(210px, .7fr) minmax(360px, 1.3fr); align-items: start; }
-      .lane, .binding, .capture, .planForm { grid-column: 1; }
-      .statusTabs, .list, .empty, .loading { grid-column: 2; }
-      .statusTabs { grid-row: 1; }
-      .list, .empty, .loading { grid-row: 2 / span 5; }
-      .newPlanButton { min-width: 92px; }
-    }
-
-    @media (max-width: 430px) {
-      .app { padding: 0; }
-      .shell { min-height: 100vh; border-width: 0; border-radius: 0; box-shadow: none; }
-      .topbar, .content { padding-inline: 10px; }
-      .newPlanButton span { display: none; }
-      .capture { grid-template-columns: minmax(0, 1fr) 44px; }
-      .capture:has(.captureActions) { grid-template-columns: minmax(0, 1fr) auto; }
-      .captureActions { flex-direction: column; }
-      .captureActions .primaryButton, .captureActions .smartButton { min-width: 52px; height: 34px; padding: 0 8px; font-size: 9px; }
-      .planFormGrid { grid-template-columns: 1fr; }
-      .planFormGrid .wide { grid-column: auto; }
-      .manualProjectFields { grid-column: auto; grid-template-columns: 1fr; }
-      .receiptOverlay { padding: 10px; }
-      .receiptDialog { max-height: calc(100vh - 20px); padding: 14px; border-radius: 16px; }
-    }
-
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #171a16;
-        --surface: #1d211c;
-        --raised: #242923;
-        --ink: #edf1e9;
-        --muted: #a6ada1;
-        --faint: #7f877a;
-        --line: #343a32;
-        --line-strong: #444c40;
-        --moss: #8cab74;
-        --moss-hover: #7b9c65;
-        --moss-soft: #2c3926;
-        --shadow: 0 1px 1px rgb(0 0 0 / 16%), 0 10px 28px rgb(0 0 0 / 20%);
-      }
-      .mark { background: #536d45; }
-      .primaryButton { color: #11160f; }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
-    }
+    :root{color-scheme:light dark;--bg:#f3f4f0;--surface:#fbfcf9;--raised:#fff;--ink:#20251e;--muted:#72786f;--faint:#9ba198;--line:#dfe3dc;--line2:#cbd1c7;--moss:#536c42;--moss2:#465b38;--mossSoft:#e8efe2;--blue:#5f7f9b;--purple:#7b6591;--red:#9d5b53;--redSoft:#f5e8e6;--shadow:0 1px 2px rgb(28 35 25/5%),0 8px 26px rgb(28 35 25/6%);--modalShadow:0 24px 72px rgb(18 23 16/22%),0 2px 8px rgb(18 23 16/10%)}
+    *{box-sizing:border-box}html{min-width:300px;min-height:100%;-webkit-font-smoothing:antialiased}body{min-height:100%;margin:0;color:var(--ink);background:transparent;font:13px/1.48 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-rendering:optimizeLegibility}body[data-display-mode="fullscreen"]{background:var(--bg)}button,input,textarea,select{color:inherit;font:inherit}button{-webkit-tap-highlight-color:transparent}button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid color-mix(in srgb,var(--moss) 62%,transparent);outline-offset:2px}
+    .shell{min-height:100%;overflow:hidden;background:var(--surface);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow)}body[data-display-mode="pip"] .shell{min-height:100vh;border-radius:16px}body[data-display-mode="fullscreen"] .shell{width:min(1680px,100%);min-height:100vh;margin:0 auto;border-width:0 1px;border-radius:0;box-shadow:none}
+    .topbar{position:sticky;z-index:8;top:0;display:flex;min-height:58px;align-items:center;gap:10px;padding:8px 10px 8px 12px;background:color-mix(in srgb,var(--surface) 94%,transparent);border-bottom:1px solid var(--line);backdrop-filter:blur(14px)}.brandMark{display:grid;width:34px;height:34px;flex:0 0 34px;place-items:center;color:#fff;background:#455b38;border-radius:10px;box-shadow:inset 0 1px 0 rgb(255 255 255/13%),0 2px 7px rgb(43 57 35/18%)}.brandMark svg{width:18px;height:18px}.brandCopy{min-width:0;flex:1}.brandCopy strong{display:block;font-size:13px;font-weight:750;letter-spacing:-.015em}.brandCopy span{display:block;overflow:hidden;color:var(--muted);font-size:9.5px;text-overflow:ellipsis;white-space:nowrap}.connection{display:inline-flex;align-items:center;gap:5px;color:var(--muted);font-size:9.5px;white-space:nowrap}.connectionDot{width:6px;height:6px;border-radius:50%;background:var(--red)}.connection.connected .connectionDot{background:#7fa069;box-shadow:0 0 0 3px rgb(127 160 105/12%)}.topActions{display:flex;align-items:center;gap:2px}
+    .iconButton{display:inline-grid;min-width:40px;height:40px;padding:0;place-items:center;color:var(--muted);background:transparent;border:0;border-radius:10px;cursor:pointer;transition-property:color,background-color,transform,opacity;transition-duration:130ms;transition-timing-function:cubic-bezier(.2,0,0,1)}.iconButton:hover:not(:disabled){color:var(--ink);background:color-mix(in srgb,var(--ink) 6%,transparent)}.iconButton:active:not(:disabled){transform:scale(.96)}.iconButton:disabled{opacity:.42;cursor:default}.iconButton.active{color:var(--moss);background:var(--mossSoft)}.iconButton svg{width:17px;height:17px}
+    .view{padding:12px}.button{display:inline-flex;min-height:40px;align-items:center;justify-content:center;gap:6px;padding:0 11px;color:var(--ink);background:var(--raised);border:1px solid var(--line);border-radius:9px;cursor:pointer;font-size:10.5px;font-weight:680;transition-property:color,background-color,border-color,transform,opacity,box-shadow;transition-duration:130ms;transition-timing-function:cubic-bezier(.2,0,0,1)}.button:hover:not(:disabled){border-color:var(--line2);box-shadow:0 2px 6px rgb(28 35 25/7%)}.button:active:not(:disabled){transform:scale(.96)}.button:disabled{opacity:.45;cursor:default}.button.primary{color:#fff;background:var(--moss);border-color:color-mix(in srgb,var(--moss) 86%,#000)}.button.primary:hover:not(:disabled){background:var(--moss2)}.button.quiet{color:var(--muted);background:color-mix(in srgb,var(--ink) 3%,var(--raised))}.button svg{width:14px;height:14px}.count{font-variant-numeric:tabular-nums}
+    .inlineView,.pipView{display:grid;gap:10px}.summary{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:2px}.summary h1{margin:0;font-size:18px;line-height:1.25;letter-spacing:-.025em;text-wrap:balance}.summary p{margin:4px 0 0;color:var(--muted);font-size:10px;text-wrap:pretty}.stats{display:flex;flex-wrap:wrap;gap:5px}.pill{display:inline-flex;min-height:28px;align-items:center;gap:5px;padding:0 8px;color:var(--muted);background:color-mix(in srgb,var(--ink) 3%,var(--raised));border-radius:999px;font-size:9px;white-space:nowrap}.pill i{width:6px;height:6px;border-radius:50%;background:var(--line2)}.pill.ready i{background:var(--blue)}.pill.active i{background:var(--purple)}.pill.failed i{background:var(--red)}
+    .composer{display:grid;grid-template-columns:minmax(0,1fr) minmax(120px,170px) auto;gap:7px;padding:8px;background:var(--raised);border:1px solid var(--line);border-radius:13px;box-shadow:0 1px 2px rgb(28 35 25/4%)}.composer input,.composer textarea,.composer select,.field input,.field select,.projectControls select,.projectPicker{width:100%;min-width:0;color:var(--ink);background:color-mix(in srgb,var(--ink) 3%,var(--raised));border:1px solid transparent;border-radius:8px;outline:0;transition-property:background-color,border-color,box-shadow;transition-duration:130ms}.composer input,.composer select,.projectPicker{height:40px;padding:0 10px}.composer textarea{min-height:64px;padding:9px 10px;resize:vertical}.composer input:focus,.composer textarea:focus,.composer select:focus,.field input:focus,.field select:focus,.projectControls select:focus,.projectPicker:focus{background:var(--raised);border-color:color-mix(in srgb,var(--moss) 42%,var(--line));box-shadow:0 0 0 3px color-mix(in srgb,var(--moss) 9%,transparent)}.composerActions{display:flex;align-items:flex-end;gap:6px}.sectionHeader{display:flex;min-height:30px;align-items:center;justify-content:space-between;gap:8px}.sectionHeader h2{margin:0;font-size:10px;font-weight:720}.sectionHeader span{color:var(--muted);font-size:9px}
+    .pipToolbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px}.projectPicker{background:var(--raised);border-color:var(--line);border-radius:10px}.tabs{display:flex;gap:4px;padding:3px;overflow-x:auto;background:color-mix(in srgb,var(--ink) 4%,transparent);border-radius:11px;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}.tab{display:inline-flex;min-width:66px;min-height:38px;flex:1 0 auto;align-items:center;justify-content:center;gap:5px;padding:0 8px;color:var(--muted);background:transparent;border:0;border-radius:8px;cursor:pointer;font-size:9.5px;font-weight:650;transition-property:color,background-color,box-shadow,transform;transition-duration:120ms}.tab:hover{color:var(--ink)}.tab.active{color:var(--ink);background:var(--raised);box-shadow:0 1px 3px rgb(28 35 25/9%)}.tab:active{transform:scale(.96)}.tab em{font-style:normal;font-variant-numeric:tabular-nums}.todoList{display:grid;gap:7px}
+    .todoCard{padding:10px;background:var(--raised);border:1px solid var(--line);border-radius:12px;box-shadow:0 1px 2px rgb(28 35 25/3%);transition-property:border-color,box-shadow,transform,opacity;transition-duration:130ms}.todoCard:hover{border-color:var(--line2);box-shadow:0 6px 18px rgb(28 35 25/6%);transform:translateY(-1px)}.todoCard.busy{opacity:.58;pointer-events:none}.todoTop{display:flex;align-items:center;gap:7px}.statusDot{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:var(--faint)}.statusDot.ready{background:var(--blue)}.statusDot.sending,.statusDot.running{background:var(--purple)}.statusDot.completed{background:var(--moss)}.statusDot.failed{background:var(--red)}.todoProject{min-width:0;flex:1;overflow:hidden;color:var(--muted);font-size:9px;text-overflow:ellipsis;white-space:nowrap}.sourceBadge{padding:2px 6px;color:var(--moss);background:var(--mossSoft);border-radius:999px;font-size:8px;font-weight:680}.todoCard h3{margin:8px 0 0;font-size:12px;font-weight:690;line-height:1.4;overflow-wrap:anywhere;text-wrap:pretty}.todoCard p{display:-webkit-box;margin:4px 0 0;overflow:hidden;color:var(--muted);font-size:10px;line-height:1.48;-webkit-box-orient:vertical;-webkit-line-clamp:2;text-wrap:pretty}.todoCard p.todoError{color:var(--red)}.todoFooter{display:flex;min-height:32px;align-items:flex-end;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid color-mix(in srgb,var(--line) 70%,transparent)}.todoFooter time{min-width:0;flex:1;color:var(--faint);font-size:8.5px}.statusSelect{height:30px;max-width:96px;padding:0 7px;color:var(--muted);background:color-mix(in srgb,var(--ink) 4%,transparent);border:1px solid var(--line);border-radius:7px;font-size:9px}.miniButton{min-height:30px;padding:0 8px;border-radius:7px;font-size:9px}
+    .projectControls{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:7px;padding:8px;background:color-mix(in srgb,var(--ink) 3%,var(--surface));border-radius:11px}.projectControls select{height:38px;padding:0 9px;background:var(--raised);border-color:var(--line)}.toggle{display:inline-flex;min-height:38px;align-items:center;gap:6px;padding:0 8px;color:var(--muted);background:var(--raised);border:1px solid var(--line);border-radius:8px;font-size:9px;white-space:nowrap}.toggle input{accent-color:var(--moss)}
+    .fullLayout{display:grid;grid-template-columns:210px minmax(0,1fr);gap:12px}.sidebar{align-self:start;padding:8px;background:var(--raised);border:1px solid var(--line);border-radius:14px}.sideHeading{display:flex;min-height:36px;align-items:center;justify-content:space-between;padding:0 5px 0 9px;color:var(--muted);font-size:9px;font-weight:720;letter-spacing:.08em;text-transform:uppercase}.sideButton{display:flex;width:100%;min-height:40px;align-items:center;gap:8px;padding:6px 9px;color:var(--muted);background:transparent;border:0;border-radius:9px;cursor:pointer;text-align:left;transition-property:color,background-color,transform;transition-duration:120ms}.sideButton:hover{color:var(--ink);background:color-mix(in srgb,var(--ink) 4%,transparent)}.sideButton:active{transform:scale(.96)}.sideButton.active{color:var(--moss);background:var(--mossSoft)}.sideButton span{min-width:0;flex:1}.sideButton strong{display:block;overflow:hidden;font-size:10.5px;text-overflow:ellipsis;white-space:nowrap}.sideButton small{display:block;margin-top:1px;color:var(--muted);font-size:8px}.sideButton em{min-width:20px;padding:2px 5px;background:color-mix(in srgb,currentColor 8%,transparent);border-radius:999px;font-size:8px;font-style:normal;text-align:center;font-variant-numeric:tabular-nums}.workspace{min-width:0}.workspaceTop{display:grid;gap:9px;margin-bottom:10px}.board{display:grid;grid-template-columns:repeat(5,minmax(184px,1fr));gap:8px;overflow-x:auto;padding-bottom:8px}.column{min-width:184px;padding:7px;background:color-mix(in srgb,var(--ink) 3%,var(--bg));border:1px solid var(--line);border-radius:13px}.columnHeader{display:flex;min-height:34px;align-items:center;justify-content:space-between;gap:8px;padding:0 3px 5px}.columnHeader h2{margin:0;font-size:9.5px;font-weight:720}.columnHeader span{color:var(--muted);font-size:8.5px;font-variant-numeric:tabular-nums}.columnList{display:grid;gap:7px}.column .todoCard{padding:9px}
+    .empty{display:grid;min-height:110px;place-items:center;align-content:center;gap:7px;padding:16px;color:var(--muted);border:1px dashed var(--line2);border-radius:10px;font-size:9px;text-align:center}.empty svg{width:22px;height:22px;color:var(--faint)}.spinner{width:20px;height:20px;border:2px solid var(--line);border-top-color:var(--moss);border-radius:50%;animation:spin 850ms linear infinite}
+    .overlay{position:fixed;z-index:20;inset:0;display:grid;padding:14px;place-items:center;background:rgb(18 22 17/38%);backdrop-filter:blur(6px)}.dialog,.receiptDialog{width:min(480px,100%);max-height:calc(100vh - 28px);padding:16px;overflow-y:auto;background:var(--raised);border:1px solid var(--line);border-radius:18px;box-shadow:var(--modalShadow)}.dialogHeader{display:flex;align-items:flex-start;gap:10px}.dialogHeader>div{min-width:0;flex:1}.eyebrow{color:var(--moss);font-size:9px;font-weight:720}.dialogHeader h2{margin:4px 0 0;font-size:16px;line-height:1.35;letter-spacing:-.02em;text-wrap:balance}.field{display:grid;gap:5px;margin-top:11px}.field span{color:var(--muted);font-size:9px;font-weight:660}.field input,.field select{height:40px;padding:0 10px;border-color:var(--line)}.dialogActions{display:flex;justify-content:flex-end;gap:7px;margin-top:14px}.resultSection{display:grid;gap:7px;margin-top:15px}.resultHead{display:flex;min-height:28px;align-items:center;justify-content:space-between;gap:8px}.resultHead h3{margin:0;font-size:10px}.answerCard{padding:12px;color:var(--ink);background:var(--mossSoft);border:1px solid color-mix(in srgb,var(--moss) 14%,var(--line));border-radius:11px;font-size:10.5px;line-height:1.6;overflow-wrap:anywhere;white-space:pre-wrap;text-wrap:pretty}.answerCard.muted{color:var(--muted)}.artifactList{display:grid;gap:6px;margin:0;padding:0;list-style:none}.artifactItem{display:grid;grid-template-columns:28px minmax(0,1fr) 34px;align-items:center;gap:8px;min-height:52px;padding:7px;background:color-mix(in srgb,var(--ink) 3%,var(--surface));border:1px solid var(--line);border-radius:10px}.artifactMark{display:grid;width:28px;height:28px;place-items:center;color:var(--moss);background:var(--mossSoft);border-radius:8px}.artifactMark svg{width:14px;height:14px}.artifactText{min-width:0}.artifactText strong{display:block;overflow:hidden;font-size:10px;text-overflow:ellipsis;white-space:nowrap}.artifactText code{display:block;margin-top:2px;overflow:hidden;color:var(--muted);font:8px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;text-overflow:ellipsis;white-space:nowrap}.resultEmpty{padding:12px;color:var(--muted);background:color-mix(in srgb,var(--ink) 3%,var(--surface));border:1px dashed var(--line2);border-radius:10px;font-size:9.5px;text-align:center}.resultLoading{display:grid;min-height:160px;place-items:center;align-content:center;gap:9px;color:var(--muted);font-size:9.5px}
+    .toast{position:fixed;z-index:30;right:16px;bottom:16px;max-width:min(320px,calc(100vw - 32px));padding:9px 11px;color:#fff;background:#293225;border-radius:9px;box-shadow:0 14px 40px rgb(18 23 16/22%);opacity:0;transform:translateY(8px);pointer-events:none;transition-property:opacity,transform;transition-duration:150ms}.toast.show{opacity:1;transform:translateY(0)}.toast.error{background:#6d3c36}
+    @media(max-width:620px){.connection{display:none}.composer{grid-template-columns:1fr}.composerActions{align-items:center}.composerActions .button{flex:1}.projectControls{grid-template-columns:1fr}.summary{display:grid}}@media(max-width:880px){.fullLayout{grid-template-columns:1fr}.sidebar{display:flex;gap:4px;overflow-x:auto}.sideHeading{display:none}.sideButton{min-width:max-content;width:auto}.sideButton small{display:none}}@media(prefers-color-scheme:dark){:root{--bg:#171916;--surface:#1d201c;--raised:#22251f;--ink:#edf0e9;--muted:#9da49a;--faint:#737a70;--line:#343a32;--line2:#454c42;--moss:#91aa78;--moss2:#809a68;--mossSoft:#293524;--redSoft:#3b2927;--shadow:none;--modalShadow:0 24px 72px rgb(0 0 0/38%)}}@media(prefers-reduced-motion:reduce){.iconButton,.button,.tab,.todoCard,.sideButton,.toast{transition-duration:0ms}.spinner{animation-duration:1600ms}}@keyframes spin{to{transform:rotate(360deg)}}
   </style>
 </head>
-<body>
-  <div class="app">
-    <section class="shell">
-      <header class="topbar">
-        <div class="mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="7" height="7" rx="2"/><rect x="14" y="4" width="7" height="7" rx="2"/><rect x="3" y="15" width="7" height="5" rx="2"/><rect x="14" y="15" width="7" height="5" rx="2"/></svg>
-        </div>
-        <div class="title"><strong>whomi</strong><span id="subtitle">任务控制台</span></div>
-        <div class="topActions">
-          <button class="iconButton" id="refreshButton" type="button" aria-label="刷新" title="刷新">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
-          </button>
-          <button class="iconButton" id="floatButton" type="button" aria-label="浮动到对话旁" title="浮动到对话旁">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M12 10h6v6h-6z"/></svg>
-          </button>
-          <button class="iconButton" id="fullscreenButton" type="button" aria-label="全屏" title="全屏">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
-          </button>
-        </div>
-      </header>
-      <main class="content" id="content">
-        <div class="loading empty"><div class="spinner"></div><p>正在读取 Plan 和 Todo…</p></div>
-      </main>
-    </section>
-  </div>
-  <div id="receiptLayer"></div>
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<body data-display-mode="inline">
+  <section class="shell">
+    <header class="topbar"><div class="brandMark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 5h14v14H5z"/><path d="M8 9h8M8 12h5M8 15h7"/></svg></div><div class="brandCopy"><strong>whomi</strong><span id="viewTitle">Todo 与 Codex 对话</span></div><div class="connection" id="connection"><i class="connectionDot"></i><span>连接中</span></div><div class="topActions"><button class="iconButton" id="pipButton" type="button" aria-label="打开浮动窗口" title="打开浮动窗口"></button><button class="iconButton" id="fullscreenButton" type="button" aria-label="打开全屏" title="打开全屏"></button><button class="iconButton" id="inlineButton" type="button" aria-label="收起到对话" title="收起"></button><button class="iconButton" id="refreshButton" type="button" aria-label="刷新" title="刷新"></button></div></header>
+    <main class="view" id="view"><div class="empty"><div class="spinner"></div><span>正在读取 Todo…</span></div></main>
+  </section>
+  <div id="modalLayer"></div><div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script>
-    (function () {
-      "use strict";
-
-      var STATUS = [
-        { id: "all", label: "全部" },
-        { id: "someday", label: "不急" },
-        { id: "waiting", label: "等待" },
-        { id: "queued", label: "待开始" },
-        { id: "running", label: "进行中" },
-        { id: "completed", label: "已完成" },
-        { id: "ended", label: "已归档" }
-      ];
-      var MOVABLE_STATUS = [
-        { id: "someday", label: "不急" },
-        { id: "waiting", label: "等待" },
-        { id: "queued", label: "待开始" },
-        { id: "ended", label: "已归档" }
-      ];
-      var state = {
-        overview: null,
-        selectedPlanId: "",
-        selectedStatus: "all",
-        planFormOpen: false,
-        busyTodoId: "",
-        captureFile: null,
-        draftTodo: "",
-        receiptTodoId: "",
-        receiptResult: null,
-        receiptLoading: false,
-        receiptError: ""
-      };
-      var pending = new Map();
-      var nextRequestId = 1;
-      var toastTimer;
-      var receiptReturnFocus = null;
-
-      function icon(name) {
-        var icons = {
-          plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
-          send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 14-7-7 14-2-7-5-2Z"/></svg>',
-          inbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 5h16l-2 14H6L4 5Z"/><path d="M4.8 13H9l1.5 2h3L15 13h4.2"/></svg>',
-          play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="m8 5 11 7-11 7V5Z"/></svg>',
-          check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 4 4L19 6"/></svg>',
-          arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 17 17 7M9 7h8v8"/></svg>',
-          image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m4 17 5-4 3 3 3-2 5 4"/></svg>',
-          folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 6h7l2 2h9v10H3V6Z"/></svg>',
-          copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
-          chevron: '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 10 5 5 5-5"/></svg>'
-        };
-        return icons[name] || "";
-      }
-
-      function escapeHtml(value) {
-        return String(value == null ? "" : value)
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;")
-          .replace(/'/g, "&#039;");
-      }
-
-      function unwrap(payload) {
-        if (!payload) return null;
-        if (payload.result && payload.result.plans && payload.result.todos) return payload.result;
-        if (payload.plans && payload.todos) return payload;
-        if (payload.structuredContent) return unwrap(payload.structuredContent);
-        if (payload.result) return unwrap(payload.result);
-        if (payload.call_tool_result) return unwrap(payload.call_tool_result);
-        if (payload.mcp_tool_result) return unwrap(payload.mcp_tool_result);
-        return null;
-      }
-
-      function request(method, params) {
-        var id = nextRequestId++;
-        window.parent.postMessage({ jsonrpc: "2.0", id: id, method: method, params: params }, "*");
-        return new Promise(function (resolve, reject) {
-          pending.set(id, { resolve: resolve, reject: reject });
-          window.setTimeout(function () {
-            if (!pending.has(id)) return;
-            pending.delete(id);
-            reject(new Error("Codex UI bridge 请求超时"));
-          }, 180000);
-        });
-      }
-
-      function cleanToolArgs(args) {
-        var source = args && typeof args === "object" ? args : {};
-        return Object.keys(source).reduce(function (cleaned, key) {
-          var value = source[key];
-          if (value === undefined) return cleaned;
-          if (value && typeof value === "object" && !Array.isArray(value)) {
-            cleaned[key] = cleanToolArgs(value);
-          } else {
-            cleaned[key] = value;
-          }
-          return cleaned;
-        }, {});
-      }
-
-      function callTool(name, args) {
-        var cleanArgs = cleanToolArgs(args);
-        if (window.openai && typeof window.openai.callTool === "function") {
-          return window.openai.callTool(name, cleanArgs);
-        }
-        return request("tools/call", { name: name, arguments: cleanArgs });
-      }
-
-      function toolValue(payload) {
-        if (!payload) return null;
-        if (payload.structuredContent && Object.prototype.hasOwnProperty.call(payload.structuredContent, "result")) {
-          return payload.structuredContent.result;
-        }
-        if (Object.prototype.hasOwnProperty.call(payload, "result")) return payload.result;
-        if (payload.call_tool_result) return toolValue(payload.call_tool_result);
-        if (payload.mcp_tool_result) return toolValue(payload.mcp_tool_result);
-        return null;
-      }
-
-      async function sendHostMessage(prompt, scrollToBottom) {
-        var host = window.openai || {};
-        var response;
-        if (typeof host.sendFollowUpMessage === "function") {
-          response = await host.sendFollowUpMessage({ prompt: prompt, scrollToBottom: scrollToBottom !== false });
-        } else if (typeof host.sendMessage === "function") {
-          response = await host.sendMessage({ role: "user", content: [{ type: "text", text: prompt }] });
-        } else {
-          response = await request("ui/message", { role: "user", content: [{ type: "text", text: prompt }] });
-        }
-        if (response && response.isError === true) throw new Error("Codex 宿主没有接收这条消息");
-        return response;
-      }
-
-      function friendlyError(error) {
-        var message = error && error.message ? error.message : String(error || "操作失败");
-        if (/invalid mcp tool call params/i.test(message)) return "提交内容不完整，请刷新后再试";
-        if (/Completion requires/i.test(message)) return "请先开始这项 Todo，再标记完成";
-        if (/Bind this Plan to the current Codex task/i.test(message)) return "请先把 Plan 绑定到当前 Codex task";
-        if (/visible message was not found/i.test(message)) return "消息已发送，但 Plan 绑定的不是当前 task；请重新绑定后再试";
-        if (/Plan not found/i.test(message)) return "这个 Plan 已不存在，请刷新后重试";
-        if (/thread.*not found|rollout.*not found/i.test(message)) return "找不到这个 Codex 任务，请重新选择";
-        if (/required/i.test(message)) return "请把必填内容补完整";
-        return message;
-      }
-
-      function showToast(message, isError) {
-        var toast = document.getElementById("toast");
-        toast.textContent = message;
-        toast.className = isError ? "toast show error" : "toast show";
-        window.clearTimeout(toastTimer);
-        toastTimer = window.setTimeout(function () { toast.className = "toast"; }, 2600);
-      }
-
-      function timeAgo(value) {
-        var stamp = new Date(value).getTime();
-        if (!Number.isFinite(stamp)) return "";
-        var minutes = Math.max(0, Math.floor((Date.now() - stamp) / 60000));
-        if (minutes < 1) return "刚刚";
-        if (minutes < 60) return minutes + " 分钟前";
-        var hours = Math.floor(minutes / 60);
-        if (hours < 24) return hours + " 小时前";
-        return Math.floor(hours / 24) + " 天前";
-      }
-
-      async function copyText(value, label) {
-        var textarea = null;
-        try {
-          if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-            await navigator.clipboard.writeText(value);
-          } else {
-            textarea = document.createElement("textarea");
-            textarea.value = value;
-            textarea.setAttribute("readonly", "");
-            textarea.style.position = "fixed";
-            textarea.style.opacity = "0";
-            document.body.appendChild(textarea);
-            textarea.select();
-            if (!document.execCommand("copy")) throw new Error("copy failed");
-          }
-          showToast(label + "已复制");
-        } catch (error) {
-          showToast("复制失败，请手动选择", true);
-        } finally {
-          if (textarea && textarea.isConnected) textarea.remove();
-        }
-      }
-
-      function selectedPlan() {
-        if (!state.overview || !state.selectedPlanId) return null;
-        return state.overview.plans.find(function (plan) { return plan.id === state.selectedPlanId; }) || null;
-      }
-
-      function visibleTodos() {
-        if (!state.overview) return [];
-        return state.overview.todos.filter(function (todo) {
-          if (state.selectedPlanId && todo.planId !== state.selectedPlanId) return false;
-          if (state.selectedStatus !== "all" && todo.status !== state.selectedStatus) return false;
-          if (state.selectedStatus === "all" && todo.status === "ended") return false;
-          return true;
-        });
-      }
-
-      function statusCount(status) {
-        if (!state.overview) return 0;
-        return state.overview.todos.filter(function (todo) {
-          if (state.selectedPlanId && todo.planId !== state.selectedPlanId) return false;
-          if (status === "all") return todo.status !== "ended";
-          return todo.status === status;
-        }).length;
-      }
-
-      function taskOptionsForRoot(rootPath, selectedThreadId) {
-        var allTasks = state.overview.codexThreads || [];
-        var tasks = allTasks.filter(function (task) { return task.cwd === rootPath; });
-        if (selectedThreadId && !tasks.some(function (task) { return task.id === selectedThreadId; })) {
-          var selectedTask = allTasks.find(function (task) { return task.id === selectedThreadId; });
-          if (selectedTask) tasks.unshift(selectedTask);
-        }
-        var options = '<option value="">新建一个 Codex 任务</option>' + tasks.map(function (task) {
-          return '<option value="' + escapeHtml(task.id) + '" ' + (task.id === selectedThreadId ? "selected" : "") + '>' + escapeHtml(task.name) + '</option>';
-        }).join("");
-        if (selectedThreadId && !tasks.length) {
-          options += '<option value="' + escapeHtml(selectedThreadId) + '" selected>继续已选任务</option>';
-        }
-        return options;
-      }
-
-      function renderPlanForm() {
-        var projects = state.overview.codexProjects || [];
-        var defaultProject = projects[0] || null;
-        var projectOptions = projects.map(function (project) {
-          return '<option value="' + escapeHtml(project.rootPath) + '">' + escapeHtml(project.name) + '</option>';
-        }).join("") + '<option value="__manual__">其他项目…</option>';
-        var taskOptions = taskOptionsForRoot(defaultProject ? defaultProject.rootPath : "", null);
-        var manual = !defaultProject;
-        return '<form class="planForm ' + (state.planFormOpen ? "open" : "") + '" id="planForm">' +
-          '<header><h2>新建 Plan</h2><button class="iconButton" id="closePlanForm" type="button" aria-label="关闭">×</button></header>' +
-          '<div class="planFormGrid">' +
-            '<label><span>名称</span><input name="name" required placeholder="例如：登录重构" /></label>' +
-            '<label class="projectPicker"><span>项目</span><select id="codexProjectSelect" name="codexProjectRoot" aria-label="选择项目">' + projectOptions + '</select>' + icon("chevron") + '</label>' +
-            '<label class="projectPicker wide"><span>发送到</span><select id="codexTaskSelect" name="threadId" aria-label="选择 Codex 任务">' + taskOptions + '</select>' + icon("chevron") + '</label>' +
-            '<div class="manualProjectFields ' + (manual ? "open" : "") + '" id="manualProjectFields">' +
-              '<label><span>项目名称</span><input name="manualProjectName" ' + (manual ? "required" : "") + ' placeholder="Project A" /></label>' +
-              '<label><span>项目位置</span><input name="manualProjectRoot" ' + (manual ? "required" : "") + ' placeholder="/Users/me/project-a" /></label>' +
-            '</div>' +
-          '</div>' +
-          '<div class="formActions"><button class="smallButton" id="cancelPlan" type="button">取消</button><button class="primaryButton" type="submit">创建 Plan</button></div>' +
-        '</form>';
-      }
-
-      function renderTodo(todo, plans) {
-        var plan = plans.find(function (candidate) { return candidate.id === todo.planId; });
-        var choices = MOVABLE_STATUS.slice();
-        if (!choices.some(function (status) { return status.id === todo.status; })) {
-          var currentStatus = STATUS.find(function (status) { return status.id === todo.status; });
-          if (currentStatus) choices.push(currentStatus);
-        }
-        var canQueue = Boolean(todo.planId || state.selectedPlanId);
-        var options = choices.map(function (status) {
-          var disabled = status.id === "queued" && !canQueue ? "disabled" : "";
-          return '<option value="' + status.id + '" ' + (status.id === todo.status ? "selected" : "") + ' ' + disabled + '>' + status.label + '</option>';
-        }).join("");
-        var action = "";
-        if (todo.status === "queued") {
-          action = '<button class="smallButton run" type="button" data-action="start" data-id="' + escapeHtml(todo.id) + '" title="作为当前 Codex task 的可见消息启动">' + icon("play") + '当前 task 启动</button>';
-        } else if (todo.status === "running") {
-          action = '<button class="smallButton done" data-action="complete" data-id="' + escapeHtml(todo.id) + '">' + icon("check") + '完成</button>';
-        } else if (todo.status === "completed" && todo.completionThreadId) {
-          action = '<button class="smallButton" data-action="receipt" data-id="' + escapeHtml(todo.id) + '">' + icon("arrow") + '查看结果</button>';
-        }
-        return '<article class="todo ' + (state.busyTodoId === todo.id ? "busy" : "") + '">' +
-          '<div class="todoTop"><span class="dot ' + escapeHtml(todo.status) + '"></span><span class="planName">' + escapeHtml(plan ? plan.name : "未分组") + '</span>' +
-          '<select class="statusSelect" data-action="status" data-id="' + escapeHtml(todo.id) + '" aria-label="移动 Todo 状态">' + options + '</select></div>' +
-          '<h3>' + escapeHtml(todo.title) + '</h3>' +
-          (todo.description ? '<p>' + escapeHtml(todo.description) + '</p>' : '') +
-          '<footer class="todoFooter"><time datetime="' + escapeHtml(todo.updatedAt) + '">' + escapeHtml(timeAgo(todo.updatedAt)) + '</time>' + action + '</footer>' +
-        '</article>';
-      }
-
-      function renderReceipt() {
-        var layer = document.getElementById("receiptLayer");
-        var todo = state.overview && state.receiptTodoId
-          ? state.overview.todos.find(function (item) { return item.id === state.receiptTodoId; })
-          : null;
-        if (!todo) {
-          layer.innerHTML = "";
-          return;
-        }
-        var result = state.receiptResult;
-        var body = "";
-        if (state.receiptLoading) {
-          body = '<div class="resultLoading"><div class="spinner"></div><span>正在读取 AI 回复和产出物…</span></div>';
-        } else if (state.receiptError) {
-          body = '<div class="resultSection"><div class="resultEmpty">暂时无法读取这次结果，请稍后重试。</div></div>';
-        } else {
-          var answer = result && result.answer ? result.answer : "这次没有留下可展示的 AI 回复。";
-          var artifacts = result && Array.isArray(result.artifacts) ? result.artifacts : [];
-          var artifactRows = artifacts.map(function (artifact, index) {
-            return '<li class="artifactItem"><span class="artifactMark">' + icon(artifact.kind === "file" ? "folder" : "arrow") + '</span>' +
-              '<span class="artifactText"><strong>' + escapeHtml(artifact.name || "产出物") + '</strong><code title="' + escapeHtml(artifact.uri || "") + '">' + escapeHtml(artifact.uri || "") + '</code></span>' +
-              '<button class="iconButton copyButton" type="button" data-copy-artifact="' + index + '" aria-label="复制产出物地址" title="复制地址">' + icon("copy") + '</button></li>';
-          }).join("");
-          body = '<section class="resultSection"><div class="resultSectionHeader"><h3>AI 回复</h3><button class="smallButton resultCopyButton" id="copyReceiptAnswer" type="button">' + icon("copy") + '复制</button></div>' +
-            '<div class="answerCard ' + (result && result.answer ? "" : "muted") + '">' + escapeHtml(answer) + '</div></section>' +
-            '<section class="resultSection"><div class="resultSectionHeader"><h3>产出物</h3></div>' +
-            (artifactRows ? '<ul class="artifactList">' + artifactRows + '</ul>' : '<div class="resultEmpty">这次没有生成文件或链接。</div>') + '</section>';
-        }
-        layer.innerHTML = '<div class="receiptOverlay" id="receiptOverlay">' +
-          '<section class="receiptDialog" role="dialog" aria-modal="true" aria-labelledby="receiptTitle">' +
-            '<header class="receiptHeader"><div class="receiptHeading"><span class="receiptEyebrow">' + icon("check") + '执行结果</span><h2 id="receiptTitle">' + escapeHtml(todo.title) + '</h2></div>' +
-            '<button class="iconButton receiptClose" id="closeReceipt" type="button" aria-label="关闭执行结果" title="关闭">×</button></header>' +
-            body +
-            '<footer class="receiptActions"><button class="primaryButton" id="doneReceipt" type="button">关闭</button></footer>' +
-          '</section></div>';
-        document.getElementById("closeReceipt").addEventListener("click", closeReceipt);
-        document.getElementById("doneReceipt").addEventListener("click", closeReceipt);
-        var copyAnswer = document.getElementById("copyReceiptAnswer");
-        if (copyAnswer) copyAnswer.addEventListener("click", function () {
-          if (state.receiptResult && state.receiptResult.answer) copyText(state.receiptResult.answer, "AI 回复");
-        });
-        document.querySelectorAll("[data-copy-artifact]").forEach(function (button) {
-          button.addEventListener("click", function () {
-            var index = Number(button.getAttribute("data-copy-artifact"));
-            var artifact = state.receiptResult && state.receiptResult.artifacts
-              ? state.receiptResult.artifacts[index]
-              : null;
-            if (artifact && artifact.uri) copyText(artifact.uri, "产出物地址");
-          });
-        });
-        document.getElementById("receiptOverlay").addEventListener("click", function (event) {
-          if (event.target === event.currentTarget) closeReceipt();
-        });
-        document.getElementById("closeReceipt").focus();
-      }
-
-      function render() {
-        if (!state.overview) return;
-        var plans = state.overview.plans || [];
-        var currentPlan = selectedPlan();
-        var todos = visibleTodos();
-        var planOptions = '<option value="">全部 Todo</option>' + plans.map(function (plan) {
-          return '<option value="' + escapeHtml(plan.id) + '" ' + (plan.id === state.selectedPlanId ? "selected" : "") + '>' + escapeHtml(plan.projectName + " · " + plan.name) + '</option>';
-        }).join("");
-        var tabs = STATUS.map(function (status) {
-          return '<button class="statusTab ' + (status.id === state.selectedStatus ? "active" : "") + '" type="button" data-status="' + status.id + '"><span>' + status.label + '</span><em>' + statusCount(status.id) + '</em></button>';
-        }).join("");
-        var list = todos.length
-          ? '<section class="list">' + todos.map(function (todo) { return renderTodo(todo, plans); }).join("") + '</section>'
-          : '<section class="empty">' + icon("inbox") + '<strong>这里暂时没有 Todo</strong><p>可以在上方直接添加一项。</p></section>';
-        var binding = currentPlan
-          ? '<section class="binding"><strong>' + escapeHtml(currentPlan.projectName) + '</strong><span>' + escapeHtml(currentPlan.name) + '</span><p class="bindingNote">插件启动会写入当前正在查看的 task；这里需绑定同一个 task，才能保存准确的完成链接。</p><label class="routePicker"><span>Plan 绑定</span><select id="planThreadSelect" aria-label="选择与当前 Plan 绑定的 Codex task">' + taskOptionsForRoot(currentPlan.projectRoot, currentPlan.threadId) + '</select></label></section>'
-          : '';
-
-        document.getElementById("subtitle").textContent = currentPlan ? currentPlan.projectName + " / " + currentPlan.name : "全部 Todo";
-        document.getElementById("content").innerHTML =
-          '<section class="lane"><label class="laneSelect">' + icon("folder") + '<select id="planSelect" aria-label="选择 Plan">' + planOptions + '</select>' + icon("chevron") + '</label>' +
-          '<button class="newPlanButton" id="newPlanButton" type="button">' + icon("plus") + '<span>新建 Plan</span></button></section>' +
-          binding +
-          '<form class="capture" id="captureForm"><div class="captureMain"><input type="text" id="todoTitle" name="title" autocomplete="off" value="' + escapeHtml(state.draftTodo) + '" placeholder="写下一件事…" aria-label="Todo 内容" />' +
-          '<div class="captureMeta"><label class="attachmentButton ' + (state.captureFile ? "active" : "") + '">' + icon("image") + '<span>' + escapeHtml(state.captureFile ? state.captureFile.name : "附截图") + '</span><input id="captureFile" type="file" accept="image/png,image/jpeg,image/webp" hidden /></label><span class="captureHint">直接添加，或让它帮你整理</span></div></div>' +
-          '<div class="captureActions"><button class="smartButton" id="organizeTodoButton" type="button">整理</button><button class="primaryButton" type="submit" ' + (state.captureFile ? 'disabled title="附有截图时请使用整理"' : '') + '>' + icon("plus") + '添加</button></div></form>' +
-          renderPlanForm() +
-          '<nav class="statusTabs" aria-label="Todo 状态">' + tabs + '</nav>' +
-          list;
-
-        bindContentEvents();
-        renderReceipt();
-        notifyHeight();
-      }
-
-      function bindContentEvents() {
-        var planSelect = document.getElementById("planSelect");
-        if (planSelect) planSelect.addEventListener("change", function (event) {
-          state.selectedPlanId = event.target.value;
-          render();
-          persistUiState();
-        });
-        document.querySelectorAll("[data-status]").forEach(function (button) {
-          button.addEventListener("click", function () {
-            state.selectedStatus = button.getAttribute("data-status") || "all";
-            render();
-            persistUiState();
-          });
-        });
-        var newPlanButton = document.getElementById("newPlanButton");
-        if (newPlanButton) newPlanButton.addEventListener("click", function () { state.planFormOpen = !state.planFormOpen; render(); });
-        ["closePlanForm", "cancelPlan"].forEach(function (id) {
-          var button = document.getElementById(id);
-          if (button) button.addEventListener("click", function () { state.planFormOpen = false; render(); });
-        });
-        var captureForm = document.getElementById("captureForm");
-        if (captureForm) captureForm.addEventListener("submit", addTodo);
-        var todoTitle = document.getElementById("todoTitle");
-        if (todoTitle) todoTitle.addEventListener("input", function (event) { state.draftTodo = event.target.value; });
-        var organizeTodoButton = document.getElementById("organizeTodoButton");
-        if (organizeTodoButton) organizeTodoButton.addEventListener("click", organizeTodos);
-        var captureFile = document.getElementById("captureFile");
-        if (captureFile) captureFile.addEventListener("change", function (event) {
-          state.captureFile = event.target.files && event.target.files[0] ? event.target.files[0] : null;
-          render();
-        });
-        var planForm = document.getElementById("planForm");
-        if (planForm) planForm.addEventListener("submit", createPlan);
-        var codexProjectSelect = document.getElementById("codexProjectSelect");
-        if (codexProjectSelect) codexProjectSelect.addEventListener("change", syncProjectSelection);
-        var manualProjectRoot = document.querySelector('[name="manualProjectRoot"]');
-        if (manualProjectRoot) manualProjectRoot.addEventListener("input", function (event) { updateTaskOptions(event.target.value); });
-        var planThreadSelect = document.getElementById("planThreadSelect");
-        if (planThreadSelect) planThreadSelect.addEventListener("change", routePlan);
-        document.querySelectorAll('[data-action="status"]').forEach(function (select) {
-          select.addEventListener("change", function () { moveTodo(select.getAttribute("data-id"), select.value); });
-        });
-        document.querySelectorAll('[data-action="start"]').forEach(function (button) {
-          button.addEventListener("click", function () { runTodo(button.getAttribute("data-id")); });
-        });
-        document.querySelectorAll('[data-action="complete"]').forEach(function (button) {
-          button.addEventListener("click", function () { completeTodo(button.getAttribute("data-id")); });
-        });
-        document.querySelectorAll('[data-action="receipt"]').forEach(function (button) {
-          button.addEventListener("click", function () { openReceipt(button.getAttribute("data-id")); });
-        });
-      }
-
-      function syncProjectSelection(event) {
-        var select = event && event.currentTarget ? event.currentTarget : document.getElementById("codexProjectSelect");
-        if (!select || !state.overview) return;
-        var project = (state.overview.codexProjects || []).find(function (candidate) { return candidate.rootPath === select.value; }) || null;
-        var manualFields = document.getElementById("manualProjectFields");
-        var manualInputs = manualFields ? manualFields.querySelectorAll("input") : [];
-        if (manualFields) manualFields.classList.toggle("open", !project);
-        manualInputs.forEach(function (input) { input.required = !project; });
-        updateTaskOptions(project ? project.rootPath : "");
-      }
-
-      function updateTaskOptions(rootPath) {
-        var select = document.getElementById("codexTaskSelect");
-        if (select) select.innerHTML = taskOptionsForRoot(String(rootPath || "").trim(), null);
-      }
-
-      async function refresh(silent) {
-        try {
-          var response = await callTool("get_overview", {});
-          var overview = unwrap(response);
-          if (!overview) throw new Error("未收到任务数据");
-          state.overview = overview;
-          render();
-          if (!silent) showToast("已刷新");
-        } catch (error) {
-          showToast(friendlyError(error), true);
-        }
-      }
-
-      async function addTodo(event) {
-        event.preventDefault();
-        var text = state.draftTodo.trim();
-        if (!text) {
-          showToast("先写下一件事", true);
-          return;
-        }
-        if (state.captureFile) {
-          showToast("附有截图时请使用整理", true);
-          return;
-        }
-        var button = event.currentTarget.querySelector('[type="submit"]');
-        button.disabled = true;
-        try {
-          var payload = { title: text, status: state.selectedPlanId ? "queued" : "someday" };
-          if (state.selectedPlanId) payload.planId = state.selectedPlanId;
-          await callTool("create_todo", payload);
-          state.draftTodo = "";
-          await refresh(true);
-          showToast(state.selectedPlanId ? "已添加到当前 Plan" : "Todo 已添加");
-        } catch (error) {
-          showToast(friendlyError(error), true);
-        } finally {
-          button.disabled = false;
-        }
-      }
-
-      async function organizeTodos() {
-        var text = state.draftTodo.trim();
-        if (!text && !state.captureFile) {
-          showToast("先写下一件事或附一张截图", true);
-          return;
-        }
-        var button = document.getElementById("organizeTodoButton");
-        button.disabled = true;
-        try {
-          var image;
-          if (state.captureFile) {
-            if (!window.openai || typeof window.openai.uploadFile !== "function" || typeof window.openai.getFileDownloadUrl !== "function") {
-              throw new Error("当前版本暂不支持截图上传");
-            }
-            var uploaded = await window.openai.uploadFile(state.captureFile);
-            if (!uploaded || !uploaded.fileId) throw new Error("截图上传失败，请重试");
-            var download = await window.openai.getFileDownloadUrl({ fileId: uploaded.fileId });
-            var downloadUrl = download && (download.downloadUrl || download.download_url);
-            if (!downloadUrl) throw new Error("截图读取失败，请重试");
-            image = {
-              download_url: downloadUrl,
-              file_id: uploaded.fileId,
-              mime_type: state.captureFile.type,
-              file_name: state.captureFile.name
-            };
-          }
-          await callTool("capture_todos", { text: text, image: image, planId: state.selectedPlanId || null });
-          state.draftTodo = "";
-          state.captureFile = null;
-          await refresh(true);
-          showToast(state.selectedPlanId ? "已整理并加入当前 Plan" : "已整理完成");
-        } catch (error) {
-          showToast(friendlyError(error), true);
-        } finally {
-          button.disabled = false;
-        }
-      }
-
-      async function createPlan(event) {
-        event.preventDefault();
-        var form = new FormData(event.currentTarget);
-        var selectedRoot = String(form.get("codexProjectRoot") || "");
-        var codexProject = (state.overview.codexProjects || []).find(function (candidate) { return candidate.rootPath === selectedRoot; }) || null;
-        var payload = {
-          name: String(form.get("name") || "").trim(),
-          codexProjectId: codexProject ? codexProject.id : null,
-          projectName: codexProject ? codexProject.name : String(form.get("manualProjectName") || "").trim(),
-          projectRoot: codexProject ? codexProject.rootPath : String(form.get("manualProjectRoot") || "").trim(),
-          branch: codexProject && codexProject.branch ? codexProject.branch : "main"
-        };
-        var threadId = String(form.get("threadId") || "").trim();
-        if (threadId) payload.threadId = threadId;
-        if (!payload.name || !payload.projectName || !payload.projectRoot) {
-          showToast("请把名称和项目补完整", true);
-          return;
-        }
-        var button = event.currentTarget.querySelector('[type="submit"]');
-        button.disabled = true;
-        try {
-          var response = await callTool("create_plan", payload);
-          var created = response && response.structuredContent && response.structuredContent.result;
-          if (created && created.id) {
-            state.overview.plans = [created].concat((state.overview.plans || []).filter(function (plan) { return plan.id !== created.id; }));
-            state.selectedPlanId = created.id;
-          }
-          state.planFormOpen = false;
-          render();
-          showToast("Plan 已创建");
-          void refresh(true);
-        } catch (error) {
-          showToast(friendlyError(error), true);
-        } finally {
-          button.disabled = false;
-        }
-      }
-
-      async function routePlan(event) {
-        if (!state.selectedPlanId) return;
-        var select = event.currentTarget;
-        var threadId = select.value || null;
-        select.disabled = true;
-        try {
-          var response = await callTool("set_plan_thread", {
-            planId: state.selectedPlanId,
-            threadId: threadId
-          });
-          var updated = response && response.structuredContent && response.structuredContent.result;
-          state.overview.plans = (state.overview.plans || []).map(function (plan) {
-            if (plan.id !== state.selectedPlanId) return plan;
-            return updated && updated.id ? updated : Object.assign({}, plan, { threadId: threadId });
-          });
-          render();
-          showToast(threadId ? "后续 Todo 会发送到所选任务" : "会在首次启动时新建任务");
-          void refresh(true);
-        } catch (error) {
-          showToast(friendlyError(error), true);
-          await refresh(true);
-        } finally {
-          if (select.isConnected) select.disabled = false;
-        }
-      }
-
-      async function moveTodo(todoId, status) {
-        if (!todoId) return;
-        var todo = state.overview.todos.find(function (item) { return item.id === todoId; });
-        if (!todo) return;
-        var planId = todo.planId || state.selectedPlanId || null;
-        if (status === "queued" && !planId) {
-          showToast("进入队列前请先选择一个 Plan", true);
-          render();
-          return;
-        }
-        state.busyTodoId = todoId;
-        render();
-        try {
-          await callTool("set_todo_status", { todoId: todoId, status: status, planId: planId });
-          await refresh(true);
-          showToast("Todo 状态已更新");
-        } catch (error) {
-          showToast(friendlyError(error), true);
-          await refresh(true);
-        } finally {
-          state.busyTodoId = "";
-          render();
-        }
-      }
-
-      async function runTodo(todoId) {
-        if (!todoId) return;
-        state.busyTodoId = todoId;
-        render();
-        try {
-          var preparedResponse = await callTool("prepare_current_todo", { todoId: todoId });
-          var prepared = toolValue(preparedResponse);
-          if (!prepared || !prepared.prompt || !prepared.marker) throw new Error("未收到 Todo 启动信息");
-          await sendHostMessage(prepared.prompt, true);
-          await callTool("register_current_todo", { todoId: todoId, marker: prepared.marker });
-          await refresh(true);
-          showToast("已发送到当前 Codex task");
-        } catch (error) {
-          showToast(friendlyError(error), true);
-          await refresh(true);
-        } finally {
-          state.busyTodoId = "";
-          render();
-        }
-      }
-
-      async function completeTodo(todoId) {
-        if (!todoId) return;
-        state.busyTodoId = todoId;
-        render();
-        try {
-          await callTool("complete_todo", { todoId: todoId });
-          await refresh(true);
-          showToast("已完成");
-        } catch (error) {
-          showToast(friendlyError(error), true);
-          await refresh(true);
-        } finally {
-          state.busyTodoId = "";
-          render();
-        }
-      }
-
-      async function openReceipt(todoId) {
-        var todo = state.overview.todos.find(function (item) { return item.id === todoId; });
-        if (!todo) return;
-        receiptReturnFocus = document.activeElement;
-        state.receiptTodoId = todoId;
-        state.receiptResult = null;
-        state.receiptLoading = true;
-        state.receiptError = "";
-        renderReceipt();
-        try {
-          var response = await callTool("get_todo_result", { todoId: todoId });
-          if (state.receiptTodoId !== todoId) return;
-          var result = toolValue(response);
-          if (!result || typeof result.answer !== "string" || !Array.isArray(result.artifacts)) {
-            throw new Error("未收到可展示的执行结果");
-          }
-          state.receiptResult = result;
-        } catch (error) {
-          if (state.receiptTodoId !== todoId) return;
-          state.receiptError = friendlyError(error);
-        } finally {
-          if (state.receiptTodoId === todoId) {
-            state.receiptLoading = false;
-            renderReceipt();
-          }
-        }
-      }
-
-      function closeReceipt() {
-        var returnFocus = receiptReturnFocus;
-        receiptReturnFocus = null;
-        state.receiptTodoId = "";
-        state.receiptResult = null;
-        state.receiptLoading = false;
-        state.receiptError = "";
-        renderReceipt();
-        if (returnFocus && returnFocus.isConnected && typeof returnFocus.focus === "function") returnFocus.focus();
-      }
-
-      function persistUiState() {
-        if (window.openai && typeof window.openai.setWidgetState === "function") {
-          window.openai.setWidgetState({ selectedPlanId: state.selectedPlanId, selectedStatus: state.selectedStatus });
-        }
-      }
-
-      function restoreUiState() {
-        var saved = window.openai && window.openai.widgetState;
-        if (!saved) return;
-        if (typeof saved.selectedPlanId === "string") state.selectedPlanId = saved.selectedPlanId;
-        if (typeof saved.selectedStatus === "string") state.selectedStatus = saved.selectedStatus;
-      }
-
-      function notifyHeight() {
-        if (window.openai && typeof window.openai.notifyIntrinsicHeight === "function") {
-          window.openai.notifyIntrinsicHeight(document.documentElement.scrollHeight);
-        }
-      }
-
-      window.addEventListener("message", function (event) {
-        if (event.source !== window.parent) return;
-        var message = event.data;
-        if (!message || message.jsonrpc !== "2.0") return;
-        if (message.id !== undefined && pending.has(message.id)) {
-          var requestState = pending.get(message.id);
-          pending.delete(message.id);
-          if (message.error) requestState.reject(new Error(message.error.message || "工具调用失败"));
-          else requestState.resolve(message.result);
-          return;
-        }
-        if (message.method === "ui/notifications/tool-result") {
-          var overview = unwrap(message.params);
-          if (overview) {
-            state.overview = overview;
-            render();
-          }
-        }
-      }, { passive: true });
-
-      document.getElementById("refreshButton").addEventListener("click", function () { refresh(false); });
-      document.getElementById("floatButton").addEventListener("click", function () {
-        if (window.openai && typeof window.openai.requestDisplayMode === "function") {
-          window.openai.requestDisplayMode({ mode: "pip" });
-        } else {
-          showToast("当前宿主不支持画中画", true);
-        }
-      });
-      document.getElementById("fullscreenButton").addEventListener("click", function () {
-        if (window.openai && typeof window.openai.requestDisplayMode === "function") {
-          window.openai.requestDisplayMode({ mode: "fullscreen" });
-        } else {
-          showToast("当前宿主不支持全屏组件", true);
-        }
-      });
-      document.addEventListener("keydown", function (event) {
-        if (event.key === "Escape" && state.receiptTodoId) closeReceipt();
-        if (event.key === "Tab" && state.receiptTodoId) {
-          var dialog = document.querySelector(".receiptDialog");
-          var focusable = dialog ? Array.from(dialog.querySelectorAll("button:not(:disabled)")) : [];
-          if (!focusable.length) return;
-          var first = focusable[0];
-          var last = focusable[focusable.length - 1];
-          if (event.shiftKey && document.activeElement === first) {
-            event.preventDefault();
-            last.focus();
-          } else if (!event.shiftKey && document.activeElement === last) {
-            event.preventDefault();
-            first.focus();
-          }
-        }
-      });
-
-      restoreUiState();
-      var initial = unwrap(window.openai && window.openai.toolOutput);
-      if (initial) {
-        state.overview = initial;
-        render();
-      } else {
-        window.setTimeout(function () {
-          if (!state.overview) refresh(true);
-        }, 350);
-      }
-    })();
+  (function(){
+    "use strict";
+    var labels={draft:"草稿",ready:"待发送",sending:"发送中",running:"执行中",completed:"已完成",failed:"失败",archived:"已归档"};
+    var filters=[{id:"active",label:"进行中"},{id:"ready",label:"待发送"},{id:"draft",label:"草稿"},{id:"completed",label:"完成"},{id:"failed",label:"失败"}];
+    var columns=[{id:"draft",label:"草稿",statuses:["draft"]},{id:"ready",label:"待发送",statuses:["ready"]},{id:"active",label:"执行中",statuses:["sending","running"]},{id:"completed",label:"已完成",statuses:["completed"]},{id:"failed",label:"失败",statuses:["failed"]}];
+    var state={overview:null,projectId:"",filter:"active",busyTodoId:"",modal:"",displayMode:window.openai&&window.openai.displayMode||"inline",receiptTodoId:"",receiptResult:null,receiptLoading:false,receiptError:""};
+    var pending=new Map(),nextId=1,toastTimer,modalReturnFocus=null;
+    function icon(name){var icons={plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>',refresh:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>',pip:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M12 11h6v5h-6z"/></svg>',fullscreen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>',minimize:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>',inbox:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16l-2 14H6L4 5Z"/><path d="M5 13h4l1.5 2h3L15 13h4"/></svg>',folder:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h7l2 2h9v10H3V6Z"/></svg>',retry:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>',result:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 17 17 7M9 7h8v8"/></svg>',copy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',play:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="m8 5 11 7-11 7V5Z"/></svg>'};return icons[name]||""}
+    function esc(v){return String(v==null?"":v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;")}
+    function request(method,params){var id=nextId++;window.parent.postMessage({jsonrpc:"2.0",id:id,method:method,params:params},"*");return new Promise(function(resolve,reject){pending.set(id,{resolve:resolve,reject:reject});setTimeout(function(){if(pending.has(id)){pending.delete(id);reject(new Error("Codex UI bridge 请求超时"))}},180000)})}
+    function callTool(name,args){if(window.openai&&typeof window.openai.callTool==="function")return window.openai.callTool(name,args||{});return request("tools/call",{name:name,arguments:args||{}})}
+    function value(payload){if(!payload)return null;if(payload.structuredContent&&Object.prototype.hasOwnProperty.call(payload.structuredContent,"result"))return payload.structuredContent.result;if(Object.prototype.hasOwnProperty.call(payload,"result"))return payload.result;if(payload.call_tool_result)return value(payload.call_tool_result);if(payload.mcp_tool_result)return value(payload.mcp_tool_result);return null}
+    function overview(payload){var v=value(payload)||payload;return v&&Array.isArray(v.projects)&&Array.isArray(v.todos)?v:null}
+    function friendly(error){var m=error&&error.message?error.message:String(error||"操作失败");if(/Ready todos must belong/i.test(m))return"加入队列前请选择项目";if(/Project not found/i.test(m))return"这个项目已不存在，请刷新后再试";if(/Todo does not have a completion result/i.test(m))return"这个 Todo 还没有可展示的执行结果";if(/thread.*not found|rollout.*not found/i.test(m))return"找不到绑定的 Codex 对话，请重新选择";return m}
+    function toast(message,error){var el=document.getElementById("toast");el.textContent=message;el.className=error?"toast show error":"toast show";clearTimeout(toastTimer);toastTimer=setTimeout(function(){el.className="toast"},2600)}
+    function timeAgo(v){var stamp=new Date(v).getTime();if(!Number.isFinite(stamp))return"";var m=Math.max(0,Math.floor((Date.now()-stamp)/60000));if(m<1)return"刚刚";if(m<60)return m+" 分钟前";var h=Math.floor(m/60);return h<24?h+" 小时前":Math.floor(h/24)+" 天前"}
+    function selectedProject(){return state.overview&&state.projectId?state.overview.projects.find(function(p){return p.id===state.projectId})||null:null}
+    function projectName(id){if(!state.overview||!id)return"Inbox";var p=state.overview.projects.find(function(item){return item.id===id});return p?p.name:"未知项目"}
+    function todosForProject(){return state.overview.todos.filter(function(t){return t.status!=="archived"&&(!state.projectId||t.projectId===state.projectId)})}
+    function matches(t,filter){return filter==="active"?(t.status==="sending"||t.status==="running"):t.status===filter}
+    function count(todos,statuses){return todos.filter(function(t){return statuses.indexOf(t.status)>=0}).length}
+    function projectOptions(selected,inbox){var head=inbox?'<option value="">Inbox / 暂存</option>':'<option value="">选择项目</option>';return head+state.overview.projects.map(function(p){return'<option value="'+esc(p.id)+'" '+(p.id===selected?'selected':'')+'>'+esc(p.name)+'</option>'}).join("")}
+    function threadOptions(project){return'<option value="">首次发送时新建任务</option>'+state.overview.codexThreads.map(function(t){return'<option value="'+esc(t.id)+'" '+(project&&project.targetThreadId===t.id?'selected':'')+'>'+esc(t.name)+'</option>'}).join("")}
+    function syncMode(){var mode=state.displayMode||"inline";document.body.dataset.displayMode=mode;document.getElementById("pipButton").classList.toggle("active",mode==="pip");document.getElementById("fullscreenButton").classList.toggle("active",mode==="fullscreen");document.getElementById("inlineButton").style.display=mode==="inline"?"none":"inline-grid";document.getElementById("viewTitle").textContent=mode==="fullscreen"?"项目 Todo 队列":mode==="pip"?"Todo 浮动面板":"Todo 与 Codex 对话"}
+    async function requestDisplayMode(mode){if(!window.openai||typeof window.openai.requestDisplayMode!=="function"){toast("当前 Codex 版本暂不支持切换显示模式",true);return}var buttons=["pipButton","fullscreenButton","inlineButton"].map(function(id){return document.getElementById(id)}).filter(Boolean);buttons.forEach(function(b){b.disabled=true});try{var r=await window.openai.requestDisplayMode({mode:mode});state.displayMode=r&&r.mode||mode;render()}catch(e){toast(friendly(e),true)}finally{buttons.forEach(function(b){b.disabled=false})}}
+    function persist(){if(window.openai&&typeof window.openai.setWidgetState==="function")window.openai.setWidgetState({projectId:state.projectId,filter:state.filter})}
+    function restore(){var s=window.openai&&window.openai.widgetState;if(!s)return;if(typeof s.projectId==="string")state.projectId=s.projectId;if(typeof s.filter==="string")state.filter=s.filter}
+    function renderConnection(){var el=document.getElementById("connection"),ok=Boolean(state.overview.controller&&state.overview.controller.codexAvailable);el.className=ok?"connection connected":"connection";el.querySelector("span").textContent=ok?"Codex 已连接":"Codex 暂不可用"}
+    function renderTodo(todo,compact){var locked=todo.status==="sending"||todo.status==="running";var options=["draft","ready","completed","failed","archived"].filter(function(s){return s!=="ready"||todo.projectId});var actions=locked?'<span class="pill active"><i></i>'+esc(labels[todo.status])+'…</span>':'<select class="statusSelect" data-status="'+esc(todo.id)+'">'+options.map(function(s){return'<option value="'+s+'" '+(todo.status===s?'selected':'')+'>'+labels[s]+'</option>'}).join("")+'</select>';if(todo.status==="failed")actions+='<button class="button miniButton" type="button" data-retry="'+esc(todo.id)+'">'+icon("retry")+'重试</button>';if(todo.status==="completed"&&todo.completionThreadId&&todo.completionTurnId)actions+='<button class="button miniButton" type="button" data-result="'+esc(todo.id)+'">'+icon("result")+'查看结果</button>';return'<article class="todoCard '+(state.busyTodoId===todo.id?'busy':'')+'"><div class="todoTop"><span class="statusDot '+esc(todo.status)+'"></span><span class="todoProject">'+esc(projectName(todo.projectId))+'</span>'+(todo.sourceType==="mcp"?'<span class="sourceBadge">来自对话</span>':'')+'</div><h3>'+esc(todo.title)+'</h3>'+(!compact&&todo.description?'<p>'+esc(todo.description)+'</p>':'')+(todo.lastError?'<p class="todoError">'+esc(todo.lastError)+'</p>':'')+'<footer class="todoFooter"><time datetime="'+esc(todo.updatedAt)+'">'+esc(timeAgo(todo.updatedAt))+'</time>'+actions+'</footer></article>'}
+    function bindTodos(){document.querySelectorAll("[data-status]").forEach(function(el){el.onchange=function(){void mutate("set_todo_status",{todoId:el.dataset.status,status:el.value})}});document.querySelectorAll("[data-retry]").forEach(function(el){el.onclick=function(){void mutate("retry_todo",{todoId:el.dataset.retry})}});document.querySelectorAll("[data-result]").forEach(function(el){el.onclick=function(){void openReceipt(el.dataset.result)}})}
+    function renderControls(project){if(!project)return"";return'<section class="projectControls"><select id="threadSelect" aria-label="绑定 Codex 对话">'+threadOptions(project)+'</select><label class="toggle"><input id="autoDispatch" type="checkbox" '+(project.autoDispatch?'checked':'')+'>自动发送</label><button class="button primary" id="dispatchButton" type="button">'+icon("play")+'开始队列</button></section>'}
+    function bindControls(project){if(!project)return;var threadSelect=document.getElementById("threadSelect"),autoDispatch=document.getElementById("autoDispatch"),dispatchButton=document.getElementById("dispatchButton");if(threadSelect)threadSelect.onchange=function(e){void mutate("update_project",{projectId:project.id,targetThreadId:e.target.value||null})};if(autoDispatch)autoDispatch.onchange=function(e){void mutate("update_project",{projectId:project.id,autoDispatch:e.target.checked})};if(dispatchButton)dispatchButton.onclick=function(){void mutate("start_project_queue",{projectId:project.id})}}
+    function renderInline(data){var todos=data.todos.filter(function(t){return t.status!=="archived"}),ready=count(todos,["ready"]),active=count(todos,["sending","running"]),failed=count(todos,["failed"]),recent=todos.filter(function(t){return["sending","running","ready","failed"].includes(t.status)}).slice(0,3);var view=document.getElementById("view");view.innerHTML='<section class="inlineView"><div class="summary"><div><h1><span class="count">'+ready+'</span> 个 Todo 待发送</h1><p>'+(active?active+' 个正在 Codex 对话中执行。':'当前队列空闲，可以继续添加。')+'</p></div><div class="stats"><span class="pill ready"><i></i>待发送 <b class="count">'+ready+'</b></span><span class="pill active"><i></i>执行中 <b class="count">'+active+'</b></span><span class="pill failed"><i></i>失败 <b class="count">'+failed+'</b></span></div></div><form class="composer" id="composer"><input id="todoTitle" placeholder="写下一件事…" autocomplete="off"><select id="todoProject">'+projectOptions(state.projectId,true)+'</select><button class="button primary" type="submit">'+icon("plus")+'添加</button></form><div class="sectionHeader"><h2>队列动态</h2><span>打开浮动窗口查看更多</span></div>'+(recent.length?'<div class="todoList">'+recent.map(function(t){return renderTodo(t,true)}).join("")+'</div>':'<div class="empty">'+icon("inbox")+'<span>没有待处理 Todo</span></div>')+'</section>';var todoProject=document.getElementById("todoProject"),composer=document.getElementById("composer");if(todoProject)todoProject.onchange=function(e){state.projectId=e.target.value||"";persist()};if(composer)composer.onsubmit=function(e){e.preventDefault();void addTodo(state.projectId?"ready":"draft")};bindTodos()}
+    function renderPip(data){var todos=todosForProject(),project=selectedProject(),list=todos.filter(function(t){return matches(t,state.filter)}),tabs=filters.map(function(f){return'<button class="tab '+(state.filter===f.id?'active':'')+'" type="button" data-filter="'+f.id+'"><span>'+f.label+'</span><em>'+todos.filter(function(t){return matches(t,f.id)}).length+'</em></button>'}).join("");var view=document.getElementById("view");view.innerHTML='<section class="pipView"><div class="pipToolbar"><select class="projectPicker" id="projectPicker"><option value="">全部项目</option>'+projectOptions(state.projectId,false).replace('<option value="">选择项目</option>','')+'</select><button class="button" id="newProjectButton" type="button">'+icon("plus")+'项目</button></div><form class="composer" id="composer"><input id="todoTitle" placeholder="写下一件事…"><select id="todoProject">'+projectOptions(state.projectId,true)+'</select><div class="composerActions"><button class="button quiet" id="saveDraftButton" type="button">存草稿</button><button class="button primary" type="submit">加入队列</button></div></form>'+renderControls(project)+'<nav class="tabs">'+tabs+'</nav>'+(list.length?'<div class="todoList">'+list.map(function(t){return renderTodo(t,false)}).join("")+'</div>':'<div class="empty">'+icon("inbox")+'<span>当前分类没有 Todo</span></div>')+'</section>';var projectPicker=document.getElementById("projectPicker"),newProjectButton=document.getElementById("newProjectButton"),composer=document.getElementById("composer"),saveDraftButton=document.getElementById("saveDraftButton");if(projectPicker)projectPicker.onchange=function(e){state.projectId=e.target.value||"";persist();render()};if(newProjectButton)newProjectButton.onclick=openProjectModal;document.querySelectorAll("[data-filter]").forEach(function(b){b.onclick=function(){state.filter=b.dataset.filter||"active";persist();render()}});if(composer)composer.onsubmit=function(e){e.preventDefault();void addTodo("ready")};if(saveDraftButton)saveDraftButton.onclick=function(){void addTodo("draft")};bindControls(project);bindTodos()}
+    function sidebar(data){var all=data.todos.filter(function(t){return t.status==="ready"}).length;return'<aside class="sidebar"><button class="sideButton '+(!state.projectId?'active':'')+'" data-project=""><span><strong>全部 Todo</strong><small>所有项目</small></span><em>'+all+'</em></button><div class="sideHeading"><span>项目</span><button class="iconButton" id="newProjectButton" type="button" aria-label="新建项目" title="新建项目">'+icon("plus")+'</button></div>'+data.projects.map(function(p){var n=data.todos.filter(function(t){return t.projectId===p.id&&t.status==="ready"}).length;return'<button class="sideButton '+(state.projectId===p.id?'active':'')+'" data-project="'+esc(p.id)+'"><span><strong>'+esc(p.name)+'</strong><small>'+(p.targetThreadId?'已连接对话':'待连接对话')+'</small></span><em>'+n+'</em></button>'}).join("")+'</aside>'}
+    function renderFull(data){var todos=todosForProject(),project=selectedProject(),board=columns.map(function(c){var list=todos.filter(function(t){return c.statuses.includes(t.status)});return'<section class="column"><header class="columnHeader"><h2>'+c.label+'</h2><span>'+list.length+'</span></header><div class="columnList">'+(list.length?list.map(function(t){return renderTodo(t,false)}).join(""):'<div class="empty"><span>暂无</span></div>')+'</div></section>'}).join("");var view=document.getElementById("view");view.innerHTML='<section class="fullLayout">'+sidebar(data)+'<section class="workspace"><div class="workspaceTop"><form class="composer" id="composer"><textarea id="todoTitle" placeholder="写下一件事…"></textarea><select id="todoProject">'+projectOptions(state.projectId,true)+'</select><div class="composerActions"><button class="button quiet" id="saveDraftButton" type="button">存草稿</button><button class="button primary" type="submit">加入队列</button></div></form>'+renderControls(project)+'</div><div class="board">'+board+'</div></section></section>';document.querySelectorAll("[data-project]").forEach(function(b){b.onclick=function(){state.projectId=b.dataset.project||"";persist();render()}});var newProjectButton=document.getElementById("newProjectButton"),composer=document.getElementById("composer"),saveDraftButton=document.getElementById("saveDraftButton");if(newProjectButton)newProjectButton.onclick=openProjectModal;if(composer)composer.onsubmit=function(e){e.preventDefault();void addTodo("ready")};if(saveDraftButton)saveDraftButton.onclick=function(){void addTodo("draft")};bindControls(project);bindTodos()}
+    function render(){if(!state.overview)return;if(state.projectId&&!state.overview.projects.some(function(p){return p.id===state.projectId}))state.projectId="";syncMode();renderConnection();if(state.displayMode==="fullscreen")renderFull(state.overview);else if(state.displayMode==="pip")renderPip(state.overview);else renderInline(state.overview);renderModal();if(window.openai&&typeof window.openai.notifyIntrinsicHeight==="function"&&state.displayMode==="inline")window.openai.notifyIntrinsicHeight(document.documentElement.scrollHeight)}
+    async function refresh(silent){try{var r=await callTool("get_overview",{}),data=overview(r);if(!data)throw new Error("未收到 Todo 数据");state.overview=data;render();if(!silent)toast("已刷新")}catch(e){toast(friendly(e),true)}}
+    async function addTodo(status){var titleInput=document.getElementById("todoTitle"),projectInput=document.getElementById("todoProject"),title=titleInput?titleInput.value.trim():"",projectId=projectInput&&projectInput.value||null;if(!title){toast("先写下一件事",true);return}if(status==="ready"&&!projectId){toast("加入队列前请选择项目",true);return}try{await callTool("add_todo",{title:title,projectId:projectId,status:status});state.projectId=projectId||state.projectId;persist();await refresh(true);toast(status==="ready"?"已加入项目队列":"草稿已保存")}catch(e){toast(friendly(e),true)}}
+    async function mutate(tool,args){state.busyTodoId=args&&args.todoId||"";render();try{await callTool(tool,args);await refresh(true)}catch(e){toast(friendly(e),true);await refresh(true)}finally{state.busyTodoId="";render()}}
+    function openProjectModal(){modalReturnFocus=document.activeElement;state.modal="project";renderModal()}
+    function closeModal(){var focus=modalReturnFocus;modalReturnFocus=null;state.modal="";state.receiptTodoId="";state.receiptResult=null;state.receiptLoading=false;state.receiptError="";renderModal();if(focus&&focus.isConnected&&typeof focus.focus==="function")focus.focus()}
+    function projectModal(layer){var roots=state.overview.codexProjects.map(function(p){return'<option value="'+esc(p.rootPath)+'">'+esc(p.name)+'</option>'}).join("");layer.innerHTML='<div class="overlay" id="modalOverlay"><form class="dialog" id="projectForm" role="dialog" aria-modal="true" aria-labelledby="projectTitle"><header class="dialogHeader"><div><span class="eyebrow">PROJECT</span><h2 id="projectTitle">连接项目与 Codex 对话</h2></div><button class="iconButton" id="closeModal" type="button" aria-label="关闭">×</button></header><label class="field"><span>项目名称</span><input name="name" required></label><label class="field"><span>本地项目</span><select name="rootPath" required>'+roots+'</select></label><label class="field"><span>发送到</span><select name="targetThreadId">'+threadOptions(null)+'</select></label><footer class="dialogActions"><button class="button" id="cancelModal" type="button">取消</button><button class="button primary" type="submit">创建项目</button></footer></form></div>';var closeButton=document.getElementById("closeModal"),cancelButton=document.getElementById("cancelModal"),overlay=document.getElementById("modalOverlay"),form=document.getElementById("projectForm");if(closeButton)closeButton.onclick=closeProjectModal;if(cancelButton)cancelButton.onclick=closeProjectModal;if(overlay)overlay.onclick=function(e){if(e.target===e.currentTarget)closeProjectModal()};if(form)form.onsubmit=async function(e){e.preventDefault();var f=new FormData(e.target);try{var r=await callTool("create_project",{name:String(f.get("name")||"").trim(),rootPath:String(f.get("rootPath")||""),targetThreadId:String(f.get("targetThreadId")||"")||null,autoDispatch:true}),created=value(r);state.modal="";if(created&&created.id)state.projectId=created.id;persist();await refresh(true);toast("项目已创建")}catch(error){toast(friendly(error),true)}};if(closeButton)closeButton.focus();function closeProjectModal(){closeModal()}}
+    function receiptModal(layer){var todo=state.overview.todos.find(function(t){return t.id===state.receiptTodoId});if(!todo){closeModal();return}var body;if(state.receiptLoading)body='<div class="resultLoading"><div class="spinner"></div><span>正在读取 AI 回复和产出物…</span></div>';else if(state.receiptError)body='<section class="resultSection"><div class="resultEmpty">暂时无法读取这次结果，请稍后重试。</div></section>';else{var answer=state.receiptResult&&state.receiptResult.answer?state.receiptResult.answer:"这次没有留下可展示的 AI 回复。",artifacts=state.receiptResult&&Array.isArray(state.receiptResult.artifacts)?state.receiptResult.artifacts:[],rows=artifacts.map(function(a,i){return'<li class="artifactItem"><span class="artifactMark">'+icon(a.kind==="file"?"folder":"result")+'</span><span class="artifactText"><strong>'+esc(a.name||"产出物")+'</strong><code title="'+esc(a.uri||"")+'">'+esc(a.uri||"")+'</code></span><button class="iconButton" data-copy-artifact="'+i+'" aria-label="复制'+esc(a.name||"产出物")+'地址">'+icon("copy")+'</button></li>'}).join("");body='<section class="resultSection"><div class="resultHead"><h3>AI 回复</h3><button class="button miniButton" id="copyAnswer" type="button">'+icon("copy")+'复制</button></div><div class="answerCard '+(state.receiptResult&&state.receiptResult.answer?'':'muted')+'">'+esc(answer)+'</div></section><section class="resultSection"><div class="resultHead"><h3>产出物</h3></div>'+(rows?'<ul class="artifactList">'+rows+'</ul>':'<div class="resultEmpty">这次没有生成文件或链接。</div>')+'</section>'}layer.innerHTML='<div class="overlay" id="modalOverlay"><section class="receiptDialog" role="dialog" aria-modal="true" aria-labelledby="receiptTitle"><header class="dialogHeader"><div><span class="eyebrow">执行结果</span><h2 id="receiptTitle">'+esc(todo.title)+'</h2></div><button class="iconButton" id="closeModal" type="button" aria-label="关闭">×</button></header>'+body+'<footer class="dialogActions"><button class="button primary" id="doneReceipt" type="button">关闭</button></footer></section></div>';var closeButton=document.getElementById("closeModal"),doneButton=document.getElementById("doneReceipt"),overlay=document.getElementById("modalOverlay"),copyAnswer=document.getElementById("copyAnswer");if(closeButton)closeButton.onclick=closeModal;if(doneButton)doneButton.onclick=closeModal;if(overlay)overlay.onclick=function(e){if(e.target===e.currentTarget)closeModal()};if(copyAnswer)copyAnswer.onclick=function(){if(state.receiptResult&&state.receiptResult.answer)void copyText(state.receiptResult.answer,"AI 回复")};document.querySelectorAll("[data-copy-artifact]").forEach(function(b){b.onclick=function(){var a=state.receiptResult&&state.receiptResult.artifacts?state.receiptResult.artifacts[Number(b.dataset.copyArtifact)]:null;if(a&&a.uri)void copyText(a.uri,"产出物地址")}});if(closeButton)closeButton.focus()}
+    function renderModal(){var layer=document.getElementById("modalLayer");if(state.modal==="project")projectModal(layer);else if(state.modal==="receipt")receiptModal(layer);else layer.innerHTML=""}
+    async function openReceipt(todoId){modalReturnFocus=document.activeElement;state.modal="receipt";state.receiptTodoId=todoId;state.receiptResult=null;state.receiptLoading=true;state.receiptError="";renderModal();try{var response=await callTool("get_todo_result", { todoId: todoId }),result=value(response);if(state.receiptTodoId!==todoId)return;if(!result||typeof result.answer!=="string"||!Array.isArray(result.artifacts))throw new Error("未收到可展示的执行结果");state.receiptResult=result}catch(e){if(state.receiptTodoId===todoId)state.receiptError=friendly(e)}finally{if(state.receiptTodoId===todoId){state.receiptLoading=false;renderModal()}}}
+    async function copyText(text,label){try{await navigator.clipboard.writeText(text);toast(label+"已复制")}catch{toast("复制失败，请手动选择",true)}}
+    var pipButton=document.getElementById("pipButton"),fullscreenButton=document.getElementById("fullscreenButton"),inlineButton=document.getElementById("inlineButton"),refreshButton=document.getElementById("refreshButton");pipButton.innerHTML=icon("pip");fullscreenButton.innerHTML=icon("fullscreen");inlineButton.innerHTML=icon("minimize");refreshButton.innerHTML=icon("refresh");pipButton.onclick=function(){void requestDisplayMode("pip")};fullscreenButton.onclick=function(){void requestDisplayMode("fullscreen")};inlineButton.onclick=function(){void requestDisplayMode("inline")};refreshButton.onclick=function(){void refresh(false)};
+    window.addEventListener("openai:set_globals",function(e){var g=e&&e.detail&&e.detail.globals;if(g&&g.displayMode&&g.displayMode!==state.displayMode){state.displayMode=g.displayMode;render()}},{passive:true});window.addEventListener("message",function(e){if(e.source!==window.parent)return;var m=e.data;if(!m||m.jsonrpc!=="2.0")return;if(m.id!==undefined&&pending.has(m.id)){var p=pending.get(m.id);pending.delete(m.id);if(m.error)p.reject(new Error(m.error.message||"工具调用失败"));else p.resolve(m.result)}},{passive:true});document.addEventListener("keydown",function(e){if(e.key==="Escape"&&state.modal)closeModal()});
+    restore();syncMode();var initial=overview(window.openai&&window.openai.toolOutput);if(initial){state.overview=initial;render()}else setTimeout(function(){void refresh(true)},250);
+  })();
   </script>
 </body>
 </html>`;
 
 // apps/daemon/src/mcp.ts
-var service = new PlanService();
-var server = new McpServer({ name: "whomi", version: "0.1.0" });
-var WIDGET_CALLABLE_META = {
-  ui: { visibility: ["app"] },
-  "openai/widgetAccessible": true
-};
+var service = new WhomiService();
+var server = new McpServer({ name: "whomi", version: "0.2.0" });
+var WIDGET_CALLABLE_META = { ui: { visibility: ["app"] }, "openai/widgetAccessible": true };
 function result(value) {
   return {
     content: [{ type: "text", text: JSON.stringify(value, null, 2) }],
@@ -33357,11 +32008,7 @@ var widgetFileSchema = external_exports.object({
   file_name: external_exports.string().optional()
 });
 async function saveWidgetImage(file2) {
-  const allowedTypes = {
-    "image/png": ".png",
-    "image/jpeg": ".jpg",
-    "image/webp": ".webp"
-  };
+  const allowedTypes = { "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp" };
   const extension = file2.mime_type ? allowedTypes[file2.mime_type] : void 0;
   if (!extension) throw new Error("Screenshot must be PNG, JPEG, or WebP");
   const response = await fetch(file2.download_url);
@@ -33375,251 +32022,135 @@ async function saveWidgetImage(file2) {
   return path;
 }
 server.registerResource("whomi", WHOMI_URI, {}, async () => ({
-  contents: [
-    {
-      uri: WHOMI_URI,
-      mimeType: "text/html;profile=mcp-app",
-      text: WHOMI_HTML,
-      _meta: {
-        ui: { prefersBorder: true },
-        "openai/widgetDescription": "The compact interactive whomi workspace for Plans and Todos, with project, branch, worktree, task, and status controls.",
-        "openai/widgetPrefersBorder": true
-      }
+  contents: [{
+    uri: WHOMI_URI,
+    mimeType: "text/html;profile=mcp-app",
+    text: WHOMI_HTML,
+    _meta: {
+      ui: { prefersBorder: true },
+      "openai/widgetDescription": "A compact project and Todo queue. Ready Todos are sent to each project's Codex task one at a time.",
+      "openai/widgetPrefersBorder": true
     }
-  ]
+  }]
 }));
-server.registerTool(
-  "get_overview",
-  {
-    title: "Get Plan Overview",
-    description: "Return Codex projects plus the current Plans, Todos, status counts, and controller state without rendering UI.",
-    inputSchema: {},
-    outputSchema: { result: external_exports.any() },
-    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-    _meta: WIDGET_CALLABLE_META
-  },
-  async () => result(await service.overview())
-);
-server.registerTool(
-  "open_whomi",
-  {
-    title: "Open whomi",
-    description: "Render the interactive whomi UI. Use when the user asks to open, show, or manage their visual Plan/Todo workspace.",
-    inputSchema: {},
-    outputSchema: { result: external_exports.any() },
-    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-    _meta: {
-      ui: { resourceUri: WHOMI_URI },
-      "openai/outputTemplate": WHOMI_URI,
-      "openai/widgetAccessible": true,
-      "openai/toolInvocation/invoking": "\u6B63\u5728\u6253\u5F00 whomi\u2026",
-      "openai/toolInvocation/invoked": "whomi \u5DF2\u6253\u5F00"
-    }
-  },
-  async () => result(await service.overview())
-);
-server.registerTool(
-  "capture_todos",
-  {
-    title: "Capture Todos",
-    description: "Turn text or a screenshot into actionable Todos through the global projectless Capture task and its lightweight model.",
-    inputSchema: {
-      text: external_exports.string().optional(),
-      image: widgetFileSchema.optional(),
-      planId: external_exports.string().nullable().optional()
-    },
-    outputSchema: { result: external_exports.any() },
-    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
-    _meta: {
-      ...WIDGET_CALLABLE_META,
-      "openai/fileParams": ["image"],
-      "openai/toolInvocation/invoking": "\u6B63\u5728\u6574\u7406 Todo\u2026",
-      "openai/toolInvocation/invoked": "Todo \u5DF2\u521B\u5EFA"
-    }
-  },
-  async (input) => {
-    const imagePath = input.image ? await saveWidgetImage(input.image) : null;
-    return result(await service.capture(input.text ?? "", imagePath, input.planId));
+server.registerTool("get_overview", {
+  title: "Get whomi overview",
+  description: "Return projects, Todos, queue states, Codex projects and destination tasks.",
+  inputSchema: {},
+  outputSchema: { result: external_exports.any() },
+  annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+  _meta: WIDGET_CALLABLE_META
+}, async () => result(await service.overview()));
+server.registerTool("open_whomi", {
+  title: "Open whomi",
+  description: "Open the interactive whomi project and Todo queue.",
+  inputSchema: {},
+  outputSchema: { result: external_exports.any() },
+  annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+  _meta: {
+    ui: { resourceUri: WHOMI_URI },
+    "openai/outputTemplate": WHOMI_URI,
+    "openai/widgetAccessible": true,
+    "openai/toolInvocation/invoking": "\u6B63\u5728\u6253\u5F00 whomi\u2026",
+    "openai/toolInvocation/invoked": "whomi \u5DF2\u6253\u5F00"
   }
-);
-server.registerTool(
-  "create_plan",
-  {
-    title: "Create Plan",
-    description: "Create an execution lane that binds a project, worktree/branch, and Codex task.",
-    inputSchema: {
-      name: external_exports.string().min(1),
-      codexProjectId: external_exports.string().nullable().optional(),
-      projectName: external_exports.string().min(1),
-      projectRoot: external_exports.string().min(1),
-      branch: external_exports.string().min(1),
-      worktreePath: external_exports.string().optional(),
-      threadId: external_exports.string().nullable().optional()
-    },
-    _meta: WIDGET_CALLABLE_META
+}, async () => result(await service.overview()));
+server.registerTool("add_todo", {
+  title: "Add Todo",
+  description: "Add one Todo to whomi from any Codex conversation. Use projectId or an exact projectName. Default status is draft; use ready only when the user explicitly wants it queued for sequential sending.",
+  inputSchema: {
+    title: external_exports.string().min(1),
+    description: external_exports.string().optional(),
+    projectId: external_exports.string().nullable().optional(),
+    projectName: external_exports.string().nullable().optional(),
+    status: external_exports.enum(TODO_STATUSES).optional()
   },
-  async (input) => result(service.createPlan(input))
-);
-server.registerTool(
-  "list_codex_projects",
-  {
-    title: "List Codex Projects",
-    description: "List local projects currently registered in Codex, including their root paths and active Git branches.",
-    inputSchema: {},
-    outputSchema: { result: external_exports.any() },
-    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }
+  outputSchema: { result: external_exports.any() },
+  annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  _meta: WIDGET_CALLABLE_META
+}, async (input) => result(service.addTodo({ ...input, sourceType: "mcp" })));
+server.registerTool("capture_todos", {
+  title: "Capture Todos",
+  description: "Turn text or a screenshot into draft Todos. Captured items are never sent automatically.",
+  inputSchema: { text: external_exports.string().optional(), image: widgetFileSchema.optional(), projectId: external_exports.string().nullable().optional() },
+  outputSchema: { result: external_exports.any() },
+  annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  _meta: { ...WIDGET_CALLABLE_META, "openai/fileParams": ["image"], "openai/toolInvocation/invoking": "\u6B63\u5728\u6574\u7406 Todo\u2026", "openai/toolInvocation/invoked": "Todo \u5DF2\u521B\u5EFA" }
+}, async (input) => {
+  const imagePath = input.image ? await saveWidgetImage(input.image) : null;
+  return result(await service.capture(input.text ?? "", imagePath, input.projectId));
+});
+server.registerTool("create_project", {
+  title: "Create Project",
+  description: "Create a whomi project with a local root and optional destination Codex task.",
+  inputSchema: {
+    name: external_exports.string().min(1),
+    rootPath: external_exports.string().min(1),
+    targetThreadId: external_exports.string().nullable().optional(),
+    autoDispatch: external_exports.boolean().optional()
   },
-  async () => result(await service.listCodexProjects())
-);
-server.registerTool(
-  "list_codex_threads",
-  {
-    title: "List Codex Tasks",
-    description: "List recent Codex tasks that a Plan can send its Todos to.",
-    inputSchema: {},
-    outputSchema: { result: external_exports.any() },
-    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }
+  outputSchema: { result: external_exports.any() },
+  annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  _meta: WIDGET_CALLABLE_META
+}, async (input) => result(service.createProject(input)));
+server.registerTool("list_projects", {
+  title: "List Projects",
+  description: "List whomi projects and their destination Codex tasks.",
+  inputSchema: {},
+  outputSchema: { result: external_exports.any() },
+  annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }
+}, async () => result(service.listProjects()));
+server.registerTool("update_project", {
+  title: "Update Project",
+  description: "Update a project's name, root, destination Codex task, or automatic queue dispatch setting.",
+  inputSchema: {
+    projectId: external_exports.string(),
+    name: external_exports.string().min(1).optional(),
+    rootPath: external_exports.string().min(1).optional(),
+    targetThreadId: external_exports.string().nullable().optional(),
+    autoDispatch: external_exports.boolean().optional()
   },
-  async () => result(await service.codex.listThreads())
-);
-server.registerTool(
-  "list_plans",
-  {
-    title: "List Plans",
-    description: "List Plan execution lanes and their project, branch, worktree, and task bindings.",
-    inputSchema: {}
-  },
-  async () => result(service.listPlans())
-);
-server.registerTool(
-  "set_plan_thread",
-  {
-    title: "Set Plan Destination",
-    description: "Choose the existing Codex task that receives Todos from a Plan, or clear it so a new task is created on first start.",
-    inputSchema: {
-      planId: external_exports.string(),
-      threadId: external_exports.string().nullable()
-    },
-    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
-    _meta: WIDGET_CALLABLE_META
-  },
-  async (input) => result(service.updatePlan(input.planId, { threadId: input.threadId }))
-);
-server.registerTool(
-  "ensure_plan_worktree",
-  {
-    title: "Ensure Plan Worktree",
-    description: "Create the Plan's configured Git worktree and branch when the path does not exist.",
-    inputSchema: {
-      planId: external_exports.string(),
-      baseRef: external_exports.string().optional()
-    }
-  },
-  async (input) => result(await service.ensureWorktree(input.planId, input.baseRef))
-);
-server.registerTool(
-  "create_todo",
-  {
-    title: "Create Todo",
-    description: "Create one Todo directly without rewriting or splitting the user's text. Use queued only when planId is supplied.",
-    inputSchema: {
-      title: external_exports.string().min(1),
-      description: external_exports.string().optional(),
-      status: external_exports.enum(TODO_STATUSES).optional(),
-      planId: external_exports.string().nullable().optional()
-    },
-    _meta: WIDGET_CALLABLE_META
-  },
-  async (input) => result(service.createTodo({ ...input, sourceType: "mcp" }))
-);
-server.registerTool(
-  "list_todos",
-  {
-    title: "List Todos",
-    description: "List Todos, optionally scoped to one Plan.",
-    inputSchema: {
-      planId: external_exports.string().nullable().optional(),
-      includeEnded: external_exports.boolean().optional()
-    }
-  },
-  async (input) => result(service.listTodos(input.planId, input.includeEnded ?? false))
-);
-server.registerTool(
-  "set_todo_status",
-  {
-    title: "Set Todo Status",
-    description: "Move a Todo between \u4E0D\u6025, \u7B49\u5F85, \u961F\u5217\u4E2D, \u8FD0\u884C\u4E2D, \u5B8C\u6210, and \u7ED3\u675F.",
-    inputSchema: {
-      todoId: external_exports.string(),
-      status: external_exports.enum(TODO_STATUSES),
-      planId: external_exports.string().nullable().optional()
-    },
-    _meta: WIDGET_CALLABLE_META
-  },
-  async (input) => result(service.setStatus(input.todoId, input.status, input.planId))
-);
-server.registerTool(
-  "start_todo",
-  {
-    title: "Start Todo in Background",
-    description: "Launch a queued Todo through the daemon in its Plan-bound Codex task. Use for CLI/background execution, not for a visible message in the currently open task.",
-    inputSchema: { todoId: external_exports.string() },
-    _meta: WIDGET_CALLABLE_META
-  },
-  async (input) => result(await service.launch(input.todoId))
-);
-server.registerTool(
-  "prepare_current_todo",
-  {
-    title: "Prepare Todo for Current Task",
-    description: "Build the prompt and one-time marker used by the plugin UI to start a queued Todo as a visible message in the currently open Codex task.",
-    inputSchema: { todoId: external_exports.string() },
-    outputSchema: { result: external_exports.any() },
-    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-    _meta: WIDGET_CALLABLE_META
-  },
-  async (input) => result(await service.prepareCurrentLaunch(input.todoId))
-);
-server.registerTool(
-  "register_current_todo",
-  {
-    title: "Register Current Todo Turn",
-    description: "Match a plugin-authored execution marker inside the Plan-bound Codex task, record that exact visible turn, and move the Todo to running. Call at the start of a plugin-authored Todo turn.",
-    inputSchema: {
-      todoId: external_exports.string(),
-      marker: external_exports.string().min(1)
-    },
-    outputSchema: { result: external_exports.any() },
-    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
-    _meta: WIDGET_CALLABLE_META
-  },
-  async (input) => result(await service.registerCurrentLaunch(input.todoId, input.marker))
-);
-server.registerTool(
-  "complete_todo",
-  {
-    title: "Complete Todo",
-    description: "Mark a Todo complete and save the exact Codex task and turn that produced the result.",
-    inputSchema: {
-      todoId: external_exports.string(),
-      threadId: external_exports.string().optional(),
-      turnId: external_exports.string().optional(),
-      summary: external_exports.string().optional()
-    },
-    _meta: WIDGET_CALLABLE_META
-  },
-  async (input) => result(service.complete(input.todoId, input))
-);
-server.registerTool(
-  "get_todo_result",
-  {
-    title: "Get Todo Result",
-    description: "Return only the AI's final answer and produced files or links for a completed Todo. Internal task and turn identifiers are used only for lookup.",
-    inputSchema: { todoId: external_exports.string() },
-    outputSchema: { result: external_exports.any() },
-    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-    _meta: WIDGET_CALLABLE_META
-  },
-  async (input) => result(await service.getTodoResult(input.todoId))
-);
+  outputSchema: { result: external_exports.any() },
+  annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  _meta: WIDGET_CALLABLE_META
+}, async ({ projectId, ...input }) => result(service.updateProject(projectId, input)));
+server.registerTool("list_todos", {
+  title: "List Todos",
+  description: "List Todos, optionally for one project.",
+  inputSchema: { projectId: external_exports.string().nullable().optional(), includeArchived: external_exports.boolean().optional() },
+  outputSchema: { result: external_exports.any() },
+  annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }
+}, async (input) => result(service.listTodos(input.projectId, input.includeArchived ?? false)));
+server.registerTool("set_todo_status", {
+  title: "Set Todo Status",
+  description: "Move a Todo to draft, ready, completed, failed, or archived. Setting ready enters its project's sequential send queue.",
+  inputSchema: { todoId: external_exports.string(), status: external_exports.enum(TODO_STATUSES), projectId: external_exports.string().nullable().optional() },
+  outputSchema: { result: external_exports.any() },
+  annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  _meta: WIDGET_CALLABLE_META
+}, async (input) => result(service.setStatus(input.todoId, input.status, input.projectId)));
+server.registerTool("start_project_queue", {
+  title: "Start Project Queue",
+  description: "Start or resume sequential sending for one project. Returns immediately while the queue continues in the background.",
+  inputSchema: { projectId: external_exports.string() },
+  outputSchema: { result: external_exports.any() },
+  annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  _meta: WIDGET_CALLABLE_META
+}, async (input) => result(service.startProjectQueue(input.projectId)));
+server.registerTool("retry_todo", {
+  title: "Retry Todo",
+  description: "Move one failed Todo back to ready and resume its project queue.",
+  inputSchema: { todoId: external_exports.string() },
+  outputSchema: { result: external_exports.any() },
+  annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  _meta: WIDGET_CALLABLE_META
+}, async (input) => result(service.retryTodo(input.todoId)));
+server.registerTool("get_todo_result", {
+  title: "Get Todo Result",
+  description: "Return the AI final answer and produced files or links for a completed Todo. Task and turn identifiers remain internal.",
+  inputSchema: { todoId: external_exports.string() },
+  outputSchema: { result: external_exports.any() },
+  annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+  _meta: WIDGET_CALLABLE_META
+}, async (input) => result(await service.getTodoResult(input.todoId)));
 await server.connect(new StdioServerTransport());

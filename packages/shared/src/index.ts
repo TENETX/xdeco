@@ -1,37 +1,27 @@
 export const TODO_STATUSES = [
-  "someday",
-  "waiting",
-  "queued",
-  "running",
-  "completed",
-  "ended",
+  "draft", "ready", "sending", "running", "completed", "failed", "archived",
 ] as const;
 
 export type TodoStatus = (typeof TODO_STATUSES)[number];
 
-export const STATUS_META: Record<
-  TodoStatus,
-  { label: string; description: string; tone: string }
-> = {
-  someday: { label: "不急", description: "先记下来，暂时不排期", tone: "quiet" },
-  waiting: { label: "等待", description: "被外部条件阻塞", tone: "waiting" },
-  queued: { label: "待开始", description: "已经安排好，随时可以开始", tone: "queued" },
-  running: { label: "进行中", description: "正在处理", tone: "running" },
-  completed: { label: "已完成", description: "已经处理完成", tone: "completed" },
-  ended: { label: "已归档", description: "暂时不再显示", tone: "ended" },
+export const STATUS_META: Record<TodoStatus, { label: string; description: string; tone: string }> = {
+  draft: { label: "草稿", description: "先记下来，暂不发送", tone: "quiet" },
+  ready: { label: "待发送", description: "进入项目发送队列", tone: "queued" },
+  sending: { label: "发送中", description: "正在投递给 Codex", tone: "waiting" },
+  running: { label: "执行中", description: "Codex 正在处理", tone: "running" },
+  completed: { label: "已完成", description: "本次执行已经结束", tone: "completed" },
+  failed: { label: "失败", description: "发送或执行失败", tone: "waiting" },
+  archived: { label: "已归档", description: "不再显示在日常列表", tone: "ended" },
 };
 
 export type TodoSource = "text" | "screenshot" | "mcp";
 
-export interface Plan {
+export interface Project {
   id: string;
   name: string;
-  codexProjectId: string | null;
-  projectName: string;
-  projectRoot: string;
-  branch: string;
-  worktreePath: string;
-  threadId: string | null;
+  rootPath: string;
+  targetThreadId: string | null;
+  autoDispatch: boolean;
   color: string;
   createdAt: string;
   updatedAt: string;
@@ -41,8 +31,6 @@ export interface CodexProject {
   id: string;
   name: string;
   rootPath: string;
-  branch: string | null;
-  isGitRepository: boolean;
 }
 
 export interface CodexThread {
@@ -55,7 +43,7 @@ export interface CodexThread {
 
 export interface Todo {
   id: string;
-  planId: string | null;
+  projectId: string | null;
   title: string;
   description: string;
   status: TodoStatus;
@@ -68,6 +56,7 @@ export interface Todo {
   completionThreadId: string | null;
   completionTurnId: string | null;
   completionSummary: string | null;
+  lastError: string | null;
 }
 
 export interface TodoArtifact {
@@ -85,7 +74,7 @@ export interface TodoResult {
 export interface TodoRun {
   id: string;
   todoId: string;
-  planId: string;
+  projectId: string;
   threadId: string;
   turnId: string;
   status: "running" | "completed" | "failed" | "interrupted";
@@ -101,7 +90,7 @@ export interface ControllerState {
 }
 
 export interface Overview {
-  plans: Plan[];
+  projects: Project[];
   codexProjects: CodexProject[];
   codexThreads: CodexThread[];
   todos: Todo[];
@@ -109,14 +98,11 @@ export interface Overview {
   controller: ControllerState;
 }
 
-export interface CreatePlanInput {
+export interface CreateProjectInput {
   name: string;
-  codexProjectId?: string | null;
-  projectName: string;
-  projectRoot: string;
-  branch: string;
-  worktreePath?: string;
-  threadId?: string | null;
+  rootPath: string;
+  targetThreadId?: string | null;
+  autoDispatch?: boolean;
   color?: string;
 }
 
@@ -124,7 +110,7 @@ export interface CreateTodoInput {
   title: string;
   description?: string;
   status?: TodoStatus;
-  planId?: string | null;
+  projectId?: string | null;
   sourceType?: TodoSource;
   sourcePath?: string | null;
 }

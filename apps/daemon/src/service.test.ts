@@ -1,72 +1,57 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { PlanDatabase } from "./database.js";
-import { PlanService } from "./service.js";
+import { WhomiDatabase } from "./database.js";
+import { WhomiService } from "./service.js";
 
-const unavailableCodex = {
-  available: async () => false,
-} as any;
+const unavailableCodex = { available: async () => false, listThreads: async () => [] } as any;
+const emptyCatalog = { list: async () => [] };
 
-test("queued todos require a Plan and keep the exact six-state model", () => {
-  const database = new PlanDatabase(":memory:");
-  const service = new PlanService(database, unavailableCodex);
-  assert.throws(() => service.createTodo({ title: "orphan", status: "queued" }), /Plan/);
-  const plan = service.createPlan({
-    name: "A plan",
-    codexProjectId: "codex-project-a",
-    projectName: "A",
-    projectRoot: "/tmp/a",
-    branch: "feat/a",
-  });
-  assert.equal(plan.codexProjectId, "codex-project-a");
-  const todo = service.createTodo({ title: "ship", status: "queued", planId: plan.id });
-  assert.equal(todo.status, "queued");
-  assert.equal(todo.planId, plan.id);
-  assert.equal(service.setStatus(todo.id, "ended").status, "ended");
+function tick(): Promise<void> { return new Promise((resolve) => setImmediate(resolve)); }
+
+test("adds a Todo from another conversation by exact project name", () => {
+  const database = new WhomiDatabase(":memory:");
+  const service = new WhomiService(database, unavailableCodex, emptyCatalog);
+  const project = service.createProject({ name: "Website", rootPath: "/workspace/site", autoDispatch: false });
+  const added = service.addTodo({ title: "Fix navigation", projectName: "website", status: "ready", sourceType: "mcp" });
+  assert.equal(added.todo.projectId, project.id);
+  assert.equal(added.todo.status, "ready");
+  assert.equal(added.todo.sourceType, "mcp");
+  assert.equal(added.dispatchStarted, false);
   database.close();
 });
 
-test("completion stores the originating task and turn", () => {
-  const database = new PlanDatabase(":memory:");
-  const service = new PlanService(database, unavailableCodex);
-  const todo = service.createTodo({ title: "done" });
-  assert.throws(() => service.setStatus(todo.id, "completed"), /complete_todo/);
-  const completed = service.complete(todo.id, {
-    threadId: "thr_123",
-    turnId: "turn_456",
-    summary: "tests green",
-  });
-  assert.equal(completed.status, "completed");
-  assert.equal(completed.completionThreadId, "thr_123");
-  assert.equal(completed.completionTurnId, "turn_456");
+test("ready Todos require a Project and drafts do not dispatch", () => {
+  const database = new WhomiDatabase(":memory:");
+  const service = new WhomiService(database, unavailableCodex, emptyCatalog);
+  assert.throws(() => service.addTodo({ title: "orphan", status: "ready" }), /Project/);
+  assert.equal(service.addTodo({ title: "remember this" }).todo.status, "draft");
   database.close();
 });
 
-test("completion result exposes the AI answer and artifacts without routing metadata", async () => {
-  const database = new PlanDatabase(":memory:");
+test("returns the completed AI answer and artifacts without routing metadata", async () => {
+  const database = new WhomiDatabase(":memory:");
   const codex = {
     available: async () => true,
+    listThreads: async () => [],
     readTurnResult: async (threadId: string, turnId: string) => {
-      assert.equal(threadId, "thr_result");
+      assert.equal(threadId, "thread_result");
       assert.equal(turnId, "turn_result");
       return {
-        answer: "实现完成，测试已通过。",
+        answer: "已经完成并通过测试。",
         artifacts: [{ kind: "file", name: "result.md", uri: "/tmp/result.md" }],
       };
     },
   } as any;
   try {
-    const service = new PlanService(database, codex);
-    const todo = service.createTodo({ title: "show result" });
-    service.complete(todo.id, { threadId: "thr_result", turnId: "turn_result" });
+    const service = new WhomiService(database, codex, emptyCatalog);
+    const project = service.createProject({ name: "Result", rootPath: "/workspace/result", autoDispatch: false });
+    const todo = service.addTodo({ title: "Show result", projectId: project.id }).todo;
+    database.completeTodo(todo.id, "thread_result", "turn_result", "fallback");
 
     const result = await service.getTodoResult(todo.id);
     assert.deepEqual(result, {
-      title: "show result",
-      answer: "实现完成，测试已通过。",
+      title: "Show result",
+      answer: "已经完成并通过测试。",
       artifacts: [{ kind: "file", name: "result.md", uri: "/tmp/result.md" }],
     });
     assert.equal("completionThreadId" in result, false);
@@ -76,106 +61,67 @@ test("completion result exposes the AI answer and artifacts without routing meta
   }
 });
 
-test("launch sends a Todo to the selected Codex task without renaming it", async () => {
-  const projectRoot = await mkdtemp(join(tmpdir(), "plan-route-test-"));
-  const calls: Array<{ method: string; params?: Record<string, unknown> }> = [];
+test("dispatches ready Todos one at a time in position order", async () => {
+  const database = new WhomiDatabase(":memory:");
+  const sent: string[] = [];
+  const resolvers = new Map<string, (value: any) => void>();
+  let turn = 0;
   const codex = {
     available: async () => true,
     listThreads: async () => [],
-    resumeThread: async (threadId: string) => { calls.push({ method: "resume", params: { threadId } }); },
-    request: async (method: string, params: Record<string, unknown>) => { calls.push({ method, params }); },
-    startThread: async () => { throw new Error("should not create a task"); },
-    startTurn: async (params: Record<string, unknown>) => {
-      calls.push({ method: "turn/start", params });
-      return "turn_456";
+    resumeThread: async () => undefined,
+    startThread: async () => "thread_1",
+    request: async () => undefined,
+    startTurn: async (params: any) => {
+      const turnId = `turn_${++turn}`;
+      sent.push(params.input[0].text);
+      return turnId;
     },
-    waitForTurn: async () => ({ status: "completed", text: "done", error: null }),
+    waitForTurn: async (turnId: string) => new Promise((resolve) => resolvers.set(turnId, resolve)),
   } as any;
-  const database = new PlanDatabase(":memory:");
-  try {
-    const service = new PlanService(database, codex);
-    const plan = service.createPlan({
-      name: "Route plan",
-      projectName: "A",
-      projectRoot,
-      branch: "main",
-      threadId: "thread_123",
-    });
-    const todo = service.createTodo({ title: "ship", status: "queued", planId: plan.id });
-    const launched = await service.launch(todo.id);
-    assert.equal(launched.run.threadId, "thread_123");
-    assert.ok(calls.some((call) => call.method === "resume" && call.params?.threadId === "thread_123"));
-    assert.ok(calls.some((call) => call.method === "turn/start" && call.params?.threadId === "thread_123"));
-    assert.equal(calls.some((call) => call.method === "thread/name/set"), false);
-  } finally {
-    database.close();
-    await rm(projectRoot, { recursive: true, force: true });
-  }
+  const service = new WhomiService(database, codex, emptyCatalog);
+  const project = service.createProject({ name: "Website", rootPath: "/workspace/site", targetThreadId: "thread_1", autoDispatch: false });
+  const first = service.addTodo({ title: "First", projectId: project.id, status: "ready" }).todo;
+  const second = service.addTodo({ title: "Second", projectId: project.id, status: "ready" }).todo;
+
+  service.startProjectQueue(project.id);
+  await tick();
+  assert.equal(sent.length, 1);
+  assert.match(sent[0]!, /First/);
+  assert.equal(service.getTodo(first.id).status, "running");
+  assert.equal(service.getTodo(second.id).status, "ready");
+
+  resolvers.get("turn_1")!({ status: "completed", text: "first done", error: null });
+  await tick(); await tick();
+  assert.equal(sent.length, 2);
+  assert.match(sent[1]!, /Second/);
+  assert.equal(service.getTodo(first.id).status, "completed");
+  assert.equal(service.getTodo(second.id).status, "running");
+
+  resolvers.get("turn_2")!({ status: "completed", text: "second done", error: null });
+  await tick(); await tick();
+  assert.equal(service.getTodo(second.id).status, "completed");
+  database.close();
 });
 
-test("current-task launch prepares a visible prompt without mutating Todo state", async () => {
-  const projectRoot = await mkdtemp(join(tmpdir(), "plan-current-prompt-"));
-  const database = new PlanDatabase(":memory:");
-  try {
-    const service = new PlanService(database, unavailableCodex);
-    const plan = service.createPlan({
-      name: "Visible plan",
-      projectName: "A",
-      projectRoot,
-      branch: "feat/visible",
-      threadId: "thread_visible",
-    });
-    const todo = service.createTodo({
-      title: "render in history",
-      description: "message must be visible",
-      status: "queued",
-      planId: plan.id,
-    });
-
-    const prepared = await service.prepareCurrentLaunch(todo.id);
-    assert.equal(prepared.cwd, projectRoot);
-    assert.match(prepared.marker, new RegExp(`^\\[whomi todo=${todo.id} run=`));
-    assert.match(prepared.prompt, /register_current_todo/);
-    assert.match(prepared.prompt, /当前 Codex task/);
-    assert.equal(service.getTodo(todo.id).status, "queued");
-  } finally {
-    database.close();
-    await rm(projectRoot, { recursive: true, force: true });
-  }
-});
-
-test("registering a current-task launch stores the matched visible turn", async () => {
-  const projectRoot = await mkdtemp(join(tmpdir(), "plan-current-register-"));
-  const database = new PlanDatabase(":memory:");
+test("a failed Todo pauses the remaining project queue", async () => {
+  const database = new WhomiDatabase(":memory:");
+  let calls = 0;
   const codex = {
     available: async () => true,
-    findTurnContainingUserText: async (threadId: string, marker: string) => {
-      assert.equal(threadId, "thread_visible");
-      assert.match(marker, /whomi/);
-      return { id: "turn_visible", status: "inProgress" };
-    },
+    listThreads: async () => [],
+    resumeThread: async () => undefined,
+    startTurn: async () => `turn_${++calls}`,
+    waitForTurn: async () => ({ status: "failed", text: "", error: "boom" }),
   } as any;
-  try {
-    const service = new PlanService(database, codex);
-    const plan = service.createPlan({
-      name: "Visible plan",
-      projectName: "A",
-      projectRoot,
-      branch: "feat/visible",
-      threadId: "thread_visible",
-    });
-    const todo = service.createTodo({ title: "ship", status: "queued", planId: plan.id });
-    const marker = `[whomi todo=${todo.id} run=run_visible]`;
-
-    const registered = await service.registerCurrentLaunch(todo.id, marker);
-    assert.equal(registered.todo.status, "running");
-    assert.equal(registered.run.threadId, "thread_visible");
-    assert.equal(registered.run.turnId, "turn_visible");
-
-    const repeated = await service.registerCurrentLaunch(todo.id, marker);
-    assert.equal(repeated.run.id, registered.run.id);
-  } finally {
-    database.close();
-    await rm(projectRoot, { recursive: true, force: true });
-  }
+  const service = new WhomiService(database, codex, emptyCatalog);
+  const project = service.createProject({ name: "Website", rootPath: "/workspace/site", targetThreadId: "thread_1", autoDispatch: false });
+  const failed = service.addTodo({ title: "First", projectId: project.id, status: "ready" }).todo;
+  const waiting = service.addTodo({ title: "Second", projectId: project.id, status: "ready" }).todo;
+  service.startProjectQueue(project.id);
+  await tick(); await tick();
+  assert.equal(service.getTodo(failed.id).status, "failed");
+  assert.equal(service.getTodo(waiting.id).status, "ready");
+  assert.equal(calls, 1);
+  database.close();
 });

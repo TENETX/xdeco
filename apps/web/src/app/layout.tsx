@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "whomi",
-  description: "Project, Codex task, worktree and Todo control plane.",
+  description: "Project Todo queues that send work to Codex one item at a time.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
