@@ -1,7 +1,8 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { basename, isAbsolute, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { setTimeout as delay } from "node:timers/promises";
-import type { CodexThread } from "@whomi/shared";
+import type { CodexThread, TodoArtifact } from "@whomi/shared";
 
 type JsonObject = Record<string, unknown>;
 
@@ -29,10 +30,61 @@ interface ListedThread {
 interface ReadThreadTurn {
   id: string;
   status: string;
-  items?: Array<{
-    type?: string;
-    content?: Array<{ type?: string; text?: string }>;
-  }>;
+  items?: ReadThreadItem[];
+}
+
+interface ReadThreadItem {
+  type?: string;
+  text?: string;
+  phase?: string;
+  content?: Array<{ type?: string; text?: string }>;
+  changes?: Array<{ path?: string; kind?: string }>;
+  result?: unknown;
+}
+
+interface ReadThread {
+  cwd?: string;
+  turns?: ReadThreadTurn[];
+}
+
+function artifactName(uri: string, fallback = "链接"): string {
+  if (uri.startsWith("/")) return basename(uri) || fallback;
+  try {
+    const url = new URL(uri);
+    return basename(url.pathname) || url.hostname || fallback;
+  } catch {
+    return basename(uri) || fallback;
+  }
+}
+
+function collectResourceLinks(value: unknown, artifacts: TodoArtifact[]): void {
+  if (!value || typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    for (const item of value) collectResourceLinks(item, artifacts);
+    return;
+  }
+  const record = value as Record<string, unknown>;
+  if (record.type === "resource_link" && typeof record.uri === "string") {
+    artifacts.push({
+      kind: "link",
+      name: typeof record.title === "string"
+        ? record.title
+        : typeof record.name === "string"
+          ? record.name
+          : artifactName(record.uri),
+      uri: record.uri,
+    });
+  }
+  for (const child of Object.values(record)) collectResourceLinks(child, artifacts);
+}
+
+function collectAnswerLinks(answer: string, artifacts: TodoArtifact[]): void {
+  const markdownLinks = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+  for (const match of answer.matchAll(markdownLinks)) {
+    const uri = match[2];
+    if (!uri) continue;
+    artifacts.push({ kind: "link", name: match[1]?.trim() || artifactName(uri), uri });
+  }
 }
 
 export class CodexAppServer {
@@ -217,6 +269,45 @@ export class CodexAppServer {
       if (Date.now() < deadline) await delay(150);
     } while (Date.now() < deadline);
     return null;
+  }
+
+  async readTurnResult(
+    threadId: string,
+    turnId: string,
+  ): Promise<{ answer: string; artifacts: TodoArtifact[] }> {
+    const result = await this.request<{ thread: ReadThread }>("thread/read", {
+      threadId,
+      includeTurns: true,
+    });
+    const turn = (result.thread.turns ?? []).find((candidate) => candidate.id === turnId);
+    if (!turn) throw new Error("Completion turn not found");
+
+    const messages = (turn.items ?? []).filter(
+      (item): item is ReadThreadItem & { text: string } => item.type === "agentMessage" && typeof item.text === "string",
+    );
+    const finalMessages = messages.filter((item) => item.phase === "final_answer");
+    const answer = (finalMessages.at(-1) ?? messages.at(-1))?.text.trim() ?? "";
+    const artifacts: TodoArtifact[] = [];
+    for (const item of turn.items ?? []) {
+      if (item.type === "fileChange") {
+        for (const change of item.changes ?? []) {
+          if (!change.path) continue;
+          const uri = isAbsolute(change.path) || !result.thread.cwd
+            ? change.path
+            : resolve(result.thread.cwd, change.path);
+          artifacts.push({ kind: "file", name: basename(uri), uri });
+        }
+      }
+      if (item.type === "mcpToolCall") collectResourceLinks(item.result, artifacts);
+    }
+    collectAnswerLinks(answer, artifacts);
+
+    return {
+      answer,
+      artifacts: artifacts.filter((artifact, index) =>
+        artifacts.findIndex((candidate) => candidate.uri === artifact.uri) === index,
+      ),
+    };
   }
 
   async waitForTurn(turnId: string, timeoutMs = 120_000): Promise<TurnSnapshot> {

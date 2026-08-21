@@ -2983,7 +2983,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve3.call(this, root, ref);
+      let _sch = resolve4.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a3 = root.localRefs) === null || _a3 === void 0 ? void 0 : _a3[ref];
         const { schemaId } = this.opts;
@@ -3010,7 +3010,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve3(root, ref) {
+    function resolve4(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3641,7 +3641,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve3(baseURI, relativeURI, options) {
+    function resolve4(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const { parsed: baseParsed, malformedAuthorityOrPort: baseMalformed } = parseWithStatus(baseURI, schemelessOptions);
       const { parsed: relativeParsed, malformedAuthorityOrPort: relativeMalformed } = parseWithStatus(relativeURI, schemelessOptions);
@@ -3925,7 +3925,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve3,
+      resolve: resolve4,
       resolveComponent,
       equal,
       serialize,
@@ -28872,7 +28872,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve3) => setTimeout(resolve3, pollInterval));
+        await new Promise((resolve4) => setTimeout(resolve4, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error51) {
@@ -28889,7 +28889,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve3, reject) => {
+    return new Promise((resolve4, reject) => {
       const earlyReject = (error51) => {
         reject(error51);
       };
@@ -28967,7 +28967,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve3(parseResult.data);
+            resolve4(parseResult.data);
           }
         } catch (error51) {
           reject(error51);
@@ -29228,12 +29228,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve3, reject) => {
+    return new Promise((resolve4, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve3, interval);
+      const timeoutId = setTimeout(resolve4, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -30324,7 +30324,7 @@ var McpServer = class {
     let task = createTaskResult.task;
     const pollInterval = task.pollInterval ?? 5e3;
     while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-      await new Promise((resolve3) => setTimeout(resolve3, pollInterval));
+      await new Promise((resolve4) => setTimeout(resolve4, pollInterval));
       const updatedTask = await extra.taskStore.getTask(taskId);
       if (!updatedTask) {
         throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -30988,12 +30988,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve3) => {
+    return new Promise((resolve4) => {
       const json2 = serializeMessage(message);
       if (this._stdout.write(json2)) {
-        resolve3();
+        resolve4();
       } else {
-        this._stdout.once("drain", resolve3);
+        this._stdout.once("drain", resolve4);
       }
     });
   }
@@ -31020,6 +31020,7 @@ function countByStatus(todos) {
 }
 
 // apps/daemon/src/config.ts
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 var DAEMON_HOST = process.env.WHOMI_HOST ?? "127.0.0.1";
@@ -31027,7 +31028,8 @@ var DAEMON_PORT = Number(process.env.WHOMI_PORT ?? 4317);
 var CODEX_HOME = process.env.CODEX_HOME ? resolve(process.env.CODEX_HOME) : join(homedir(), ".codex");
 var CODEX_GLOBAL_STATE_PATH = join(CODEX_HOME, ".codex-global-state.json");
 var DATA_DIR = process.env.WHOMI_DATA_DIR ? resolve(process.env.WHOMI_DATA_DIR) : join(CODEX_HOME, "whomi");
-var DATABASE_PATH = process.env.WHOMI_DATABASE ? resolve(process.env.WHOMI_DATABASE) : join(DATA_DIR, "whomi.sqlite");
+var LEGACY_DATABASE_PATH = join(CODEX_HOME, "plan-orchestrator", "plan-orchestrator.sqlite");
+var DATABASE_PATH = process.env.WHOMI_DATABASE ? resolve(process.env.WHOMI_DATABASE) : existsSync(LEGACY_DATABASE_PATH) ? LEGACY_DATABASE_PATH : join(DATA_DIR, "whomi.sqlite");
 var CAPTURE_MODEL = process.env.WHOMI_CAPTURE_MODEL ?? "gpt-5.6-luna";
 var EXECUTION_MODEL = process.env.WHOMI_EXECUTION_MODEL ?? "gpt-5.6-terra";
 
@@ -31036,12 +31038,46 @@ import { access, stat as stat2 } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { execFile as execFile2 } from "node:child_process";
 import { promisify as promisify2 } from "node:util";
-import { isAbsolute, resolve as resolve2 } from "node:path";
+import { isAbsolute as isAbsolute2, resolve as resolve3 } from "node:path";
 
 // apps/daemon/src/app-server.ts
 import { spawn } from "node:child_process";
+import { basename, isAbsolute, resolve as resolve2 } from "node:path";
 import { createInterface } from "node:readline";
 import { setTimeout as delay } from "node:timers/promises";
+function artifactName(uri, fallback = "\u94FE\u63A5") {
+  if (uri.startsWith("/")) return basename(uri) || fallback;
+  try {
+    const url2 = new URL(uri);
+    return basename(url2.pathname) || url2.hostname || fallback;
+  } catch {
+    return basename(uri) || fallback;
+  }
+}
+function collectResourceLinks(value, artifacts) {
+  if (!value || typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    for (const item of value) collectResourceLinks(item, artifacts);
+    return;
+  }
+  const record2 = value;
+  if (record2.type === "resource_link" && typeof record2.uri === "string") {
+    artifacts.push({
+      kind: "link",
+      name: typeof record2.title === "string" ? record2.title : typeof record2.name === "string" ? record2.name : artifactName(record2.uri),
+      uri: record2.uri
+    });
+  }
+  for (const child of Object.values(record2)) collectResourceLinks(child, artifacts);
+}
+function collectAnswerLinks(answer, artifacts) {
+  const markdownLinks = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+  for (const match of answer.matchAll(markdownLinks)) {
+    const uri = match[2];
+    if (!uri) continue;
+    artifacts.push({ kind: "link", name: match[1]?.trim() || artifactName(uri), uri });
+  }
+}
 var CodexAppServer = class {
   child = null;
   nextId = 1;
@@ -31153,8 +31189,8 @@ var CodexAppServer = class {
   async request(method, params) {
     if (method !== "initialize") await this.start();
     const id = this.nextId++;
-    return new Promise((resolve3, reject) => {
-      this.pending.set(id, { resolve: resolve3, reject });
+    return new Promise((resolve4, reject) => {
+      this.pending.set(id, { resolve: resolve4, reject });
       this.write({ id, method, params });
     });
   }
@@ -31204,16 +31240,47 @@ var CodexAppServer = class {
     } while (Date.now() < deadline);
     return null;
   }
+  async readTurnResult(threadId, turnId) {
+    const result2 = await this.request("thread/read", {
+      threadId,
+      includeTurns: true
+    });
+    const turn = (result2.thread.turns ?? []).find((candidate) => candidate.id === turnId);
+    if (!turn) throw new Error("Completion turn not found");
+    const messages = (turn.items ?? []).filter(
+      (item) => item.type === "agentMessage" && typeof item.text === "string"
+    );
+    const finalMessages = messages.filter((item) => item.phase === "final_answer");
+    const answer = (finalMessages.at(-1) ?? messages.at(-1))?.text.trim() ?? "";
+    const artifacts = [];
+    for (const item of turn.items ?? []) {
+      if (item.type === "fileChange") {
+        for (const change of item.changes ?? []) {
+          if (!change.path) continue;
+          const uri = isAbsolute(change.path) || !result2.thread.cwd ? change.path : resolve2(result2.thread.cwd, change.path);
+          artifacts.push({ kind: "file", name: basename(uri), uri });
+        }
+      }
+      if (item.type === "mcpToolCall") collectResourceLinks(item.result, artifacts);
+    }
+    collectAnswerLinks(answer, artifacts);
+    return {
+      answer,
+      artifacts: artifacts.filter(
+        (artifact, index) => artifacts.findIndex((candidate) => candidate.uri === artifact.uri) === index
+      )
+    };
+  }
   async waitForTurn(turnId, timeoutMs = 12e4) {
     const finished = this.finishedTurns.get(turnId);
     if (finished) return finished;
-    return new Promise((resolve3, reject) => {
+    return new Promise((resolve4, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error(`Timed out waiting for Codex turn ${turnId}`));
       }, timeoutMs);
       const waiter = (snapshot) => {
         clearTimeout(timeout);
-        resolve3(snapshot);
+        resolve4(snapshot);
       };
       const waiters = this.turnWaiters.get(turnId) ?? [];
       waiters.push(waiter);
@@ -31489,7 +31556,7 @@ var PlanDatabase = class {
 // apps/daemon/src/projects.ts
 import { execFile } from "node:child_process";
 import { readFile, stat } from "node:fs/promises";
-import { basename } from "node:path";
+import { basename as basename2 } from "node:path";
 import { promisify } from "node:util";
 var execFileAsync = promisify(execFile);
 async function gitMetadata(rootPath) {
@@ -31508,7 +31575,7 @@ async function readState(path) {
       return JSON.parse(await readFile(path, "utf8"));
     } catch (error51) {
       lastError = error51;
-      if (attempt === 0) await new Promise((resolve3) => setTimeout(resolve3, 20));
+      if (attempt === 0) await new Promise((resolve4) => setTimeout(resolve4, 20));
     }
   }
   throw lastError;
@@ -31536,7 +31603,7 @@ var CodexProjectCatalog = class {
         if (typeof candidate !== "string" || !candidate) return [];
         return [this.describeRoot(
           typeof project.id === "string" && project.id ? project.id : key,
-          typeof project.name === "string" && project.name ? project.name : basename(candidate),
+          typeof project.name === "string" && project.name ? project.name : basename2(candidate),
           candidate
         )];
       });
@@ -31858,12 +31925,29 @@ ${todo.description}` : "",
     if (!todo) throw new Error("Todo not found");
     return todo;
   }
+  async getTodoResult(id) {
+    const todo = this.getTodo(id);
+    if (!todo.completionThreadId || !todo.completionTurnId) {
+      throw new Error("Todo does not have a completion result");
+    }
+    try {
+      const result2 = await this.codex.readTurnResult(todo.completionThreadId, todo.completionTurnId);
+      return {
+        title: todo.title,
+        answer: result2.answer || todo.completionSummary || "",
+        artifacts: result2.artifacts
+      };
+    } catch (error51) {
+      if (!todo.completionSummary) throw error51;
+      return { title: todo.title, answer: todo.completionSummary, artifacts: [] };
+    }
+  }
   async ensureWorktree(planId, baseRef = "HEAD") {
     const plan = this.database.getPlan(planId);
     if (!plan) throw new Error("Plan not found");
-    const projectRoot = resolve2(plan.projectRoot);
-    const worktreePath = resolve2(plan.worktreePath || plan.projectRoot);
-    if (!isAbsolute(plan.projectRoot) || !isAbsolute(plan.worktreePath || plan.projectRoot)) {
+    const projectRoot = resolve3(plan.projectRoot);
+    const worktreePath = resolve3(plan.worktreePath || plan.projectRoot);
+    if (!isAbsolute2(plan.projectRoot) || !isAbsolute2(plan.worktreePath || plan.projectRoot)) {
       throw new Error("Project root and worktree path must be absolute");
     }
     await access(projectRoot);
@@ -32309,6 +32393,80 @@ var WHOMI_HTML = String.raw`<!doctype html>
     .manualProjectFields.open { display: grid; }
     .formActions { display: flex; justify-content: flex-end; gap: 7px; padding-top: 2px; }
 
+    .receiptOverlay {
+      position: fixed;
+      z-index: 15;
+      inset: 0;
+      display: grid;
+      padding: 16px;
+      place-items: center;
+      background: rgb(18 22 17 / 38%);
+      backdrop-filter: blur(6px);
+    }
+    .receiptDialog {
+      width: min(460px, 100%);
+      max-height: min(620px, calc(100vh - 32px));
+      padding: 16px;
+      overflow-y: auto;
+      background: var(--raised);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 24px 70px rgb(16 21 14 / 24%), 0 2px 8px rgb(16 21 14 / 10%);
+    }
+    .receiptHeader { display: flex; align-items: flex-start; gap: 12px; }
+    .receiptHeading { min-width: 0; flex: 1; }
+    .receiptEyebrow { display: inline-flex; align-items: center; gap: 5px; color: var(--moss); font-size: 9.5px; font-weight: 720; }
+    .receiptEyebrow svg { width: 13px; height: 13px; }
+    .receiptHeading h2 { margin: 4px 0 0; font-size: 16px; line-height: 1.35; letter-spacing: -.02em; text-wrap: balance; }
+    .receiptClose { margin: -4px -4px 0 0; }
+    .resultSection { display: grid; gap: 7px; margin-top: 16px; }
+    .resultSectionHeader { display: flex; min-height: 28px; align-items: center; justify-content: space-between; gap: 8px; }
+    .resultSectionHeader h3 { margin: 0; font-size: 10px; font-weight: 720; letter-spacing: .02em; }
+    .resultCopyButton { min-height: 28px; padding: 0 8px; }
+    .answerCard {
+      padding: 12px;
+      color: var(--ink);
+      background: color-mix(in srgb, var(--moss) 7%, var(--surface));
+      border: 1px solid color-mix(in srgb, var(--moss) 14%, var(--line));
+      border-radius: 11px;
+      font-size: 11px;
+      line-height: 1.6;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+      text-wrap: pretty;
+    }
+    .answerCard.muted { color: var(--muted); }
+    .artifactList { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+    .artifactItem {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr) 34px;
+      align-items: center;
+      gap: 8px;
+      min-height: 52px;
+      padding: 7px;
+      background: color-mix(in srgb, var(--ink) 3%, var(--surface));
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+    .artifactMark { display: grid; width: 28px; height: 28px; place-items: center; color: var(--moss); background: var(--moss-soft); border-radius: 8px; }
+    .artifactMark svg { width: 14px; height: 14px; }
+    .artifactText { min-width: 0; }
+    .artifactText strong { display: block; overflow: hidden; font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+    .artifactText code {
+      display: block;
+      margin-top: 2px;
+      overflow: hidden;
+      color: var(--muted);
+      font: 8.5px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .copyButton { min-width: 34px; height: 34px; color: var(--muted); background: transparent; border: 0; border-radius: 8px; }
+    .copyButton:hover { color: var(--moss); background: var(--moss-soft); }
+    .resultEmpty { padding: 12px; color: var(--muted); background: color-mix(in srgb, var(--ink) 3%, var(--surface)); border: 1px dashed var(--line-strong); border-radius: 10px; font-size: 10px; text-align: center; }
+    .resultLoading { display: grid; min-height: 170px; place-items: center; align-content: center; gap: 10px; color: var(--muted); font-size: 10px; }
+    .receiptActions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 14px; }
+
     .toast {
       position: fixed;
       z-index: 20;
@@ -32354,6 +32512,8 @@ var WHOMI_HTML = String.raw`<!doctype html>
       .planFormGrid { grid-template-columns: 1fr; }
       .planFormGrid .wide { grid-column: auto; }
       .manualProjectFields { grid-column: auto; grid-template-columns: 1fr; }
+      .receiptOverlay { padding: 10px; }
+      .receiptDialog { max-height: calc(100vh - 20px); padding: 14px; border-radius: 16px; }
     }
 
     @media (prefers-color-scheme: dark) {
@@ -32405,6 +32565,7 @@ var WHOMI_HTML = String.raw`<!doctype html>
       </main>
     </section>
   </div>
+  <div id="receiptLayer"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script>
     (function () {
@@ -32432,11 +32593,16 @@ var WHOMI_HTML = String.raw`<!doctype html>
         planFormOpen: false,
         busyTodoId: "",
         captureFile: null,
-        draftTodo: ""
+        draftTodo: "",
+        receiptTodoId: "",
+        receiptResult: null,
+        receiptLoading: false,
+        receiptError: ""
       };
       var pending = new Map();
       var nextRequestId = 1;
       var toastTimer;
+      var receiptReturnFocus = null;
 
       function icon(name) {
         var icons = {
@@ -32448,6 +32614,7 @@ var WHOMI_HTML = String.raw`<!doctype html>
           arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 17 17 7M9 7h8v8"/></svg>',
           image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m4 17 5-4 3 3 3-2 5 4"/></svg>',
           folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 6h7l2 2h9v10H3V6Z"/></svg>',
+          copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
           chevron: '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 10 5 5 5-5"/></svg>'
         };
         return icons[name] || "";
@@ -32564,6 +32731,29 @@ var WHOMI_HTML = String.raw`<!doctype html>
         return Math.floor(hours / 24) + " 天前";
       }
 
+      async function copyText(value, label) {
+        var textarea = null;
+        try {
+          if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+            await navigator.clipboard.writeText(value);
+          } else {
+            textarea = document.createElement("textarea");
+            textarea.value = value;
+            textarea.setAttribute("readonly", "");
+            textarea.style.position = "fixed";
+            textarea.style.opacity = "0";
+            document.body.appendChild(textarea);
+            textarea.select();
+            if (!document.execCommand("copy")) throw new Error("copy failed");
+          }
+          showToast(label + "已复制");
+        } catch (error) {
+          showToast("复制失败，请手动选择", true);
+        } finally {
+          if (textarea && textarea.isConnected) textarea.remove();
+        }
+      }
+
       function selectedPlan() {
         if (!state.overview || !state.selectedPlanId) return null;
         return state.overview.plans.find(function (plan) { return plan.id === state.selectedPlanId; }) || null;
@@ -32656,6 +32846,62 @@ var WHOMI_HTML = String.raw`<!doctype html>
         '</article>';
       }
 
+      function renderReceipt() {
+        var layer = document.getElementById("receiptLayer");
+        var todo = state.overview && state.receiptTodoId
+          ? state.overview.todos.find(function (item) { return item.id === state.receiptTodoId; })
+          : null;
+        if (!todo) {
+          layer.innerHTML = "";
+          return;
+        }
+        var result = state.receiptResult;
+        var body = "";
+        if (state.receiptLoading) {
+          body = '<div class="resultLoading"><div class="spinner"></div><span>正在读取 AI 回复和产出物…</span></div>';
+        } else if (state.receiptError) {
+          body = '<div class="resultSection"><div class="resultEmpty">暂时无法读取这次结果，请稍后重试。</div></div>';
+        } else {
+          var answer = result && result.answer ? result.answer : "这次没有留下可展示的 AI 回复。";
+          var artifacts = result && Array.isArray(result.artifacts) ? result.artifacts : [];
+          var artifactRows = artifacts.map(function (artifact, index) {
+            return '<li class="artifactItem"><span class="artifactMark">' + icon(artifact.kind === "file" ? "folder" : "arrow") + '</span>' +
+              '<span class="artifactText"><strong>' + escapeHtml(artifact.name || "产出物") + '</strong><code title="' + escapeHtml(artifact.uri || "") + '">' + escapeHtml(artifact.uri || "") + '</code></span>' +
+              '<button class="iconButton copyButton" type="button" data-copy-artifact="' + index + '" aria-label="复制产出物地址" title="复制地址">' + icon("copy") + '</button></li>';
+          }).join("");
+          body = '<section class="resultSection"><div class="resultSectionHeader"><h3>AI 回复</h3><button class="smallButton resultCopyButton" id="copyReceiptAnswer" type="button">' + icon("copy") + '复制</button></div>' +
+            '<div class="answerCard ' + (result && result.answer ? "" : "muted") + '">' + escapeHtml(answer) + '</div></section>' +
+            '<section class="resultSection"><div class="resultSectionHeader"><h3>产出物</h3></div>' +
+            (artifactRows ? '<ul class="artifactList">' + artifactRows + '</ul>' : '<div class="resultEmpty">这次没有生成文件或链接。</div>') + '</section>';
+        }
+        layer.innerHTML = '<div class="receiptOverlay" id="receiptOverlay">' +
+          '<section class="receiptDialog" role="dialog" aria-modal="true" aria-labelledby="receiptTitle">' +
+            '<header class="receiptHeader"><div class="receiptHeading"><span class="receiptEyebrow">' + icon("check") + '执行结果</span><h2 id="receiptTitle">' + escapeHtml(todo.title) + '</h2></div>' +
+            '<button class="iconButton receiptClose" id="closeReceipt" type="button" aria-label="关闭执行结果" title="关闭">×</button></header>' +
+            body +
+            '<footer class="receiptActions"><button class="primaryButton" id="doneReceipt" type="button">关闭</button></footer>' +
+          '</section></div>';
+        document.getElementById("closeReceipt").addEventListener("click", closeReceipt);
+        document.getElementById("doneReceipt").addEventListener("click", closeReceipt);
+        var copyAnswer = document.getElementById("copyReceiptAnswer");
+        if (copyAnswer) copyAnswer.addEventListener("click", function () {
+          if (state.receiptResult && state.receiptResult.answer) copyText(state.receiptResult.answer, "AI 回复");
+        });
+        document.querySelectorAll("[data-copy-artifact]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            var index = Number(button.getAttribute("data-copy-artifact"));
+            var artifact = state.receiptResult && state.receiptResult.artifacts
+              ? state.receiptResult.artifacts[index]
+              : null;
+            if (artifact && artifact.uri) copyText(artifact.uri, "产出物地址");
+          });
+        });
+        document.getElementById("receiptOverlay").addEventListener("click", function (event) {
+          if (event.target === event.currentTarget) closeReceipt();
+        });
+        document.getElementById("closeReceipt").focus();
+      }
+
       function render() {
         if (!state.overview) return;
         var plans = state.overview.plans || [];
@@ -32687,6 +32933,7 @@ var WHOMI_HTML = String.raw`<!doctype html>
           list;
 
         bindContentEvents();
+        renderReceipt();
         notifyHeight();
       }
 
@@ -32967,13 +33214,40 @@ var WHOMI_HTML = String.raw`<!doctype html>
       async function openReceipt(todoId) {
         var todo = state.overview.todos.find(function (item) { return item.id === todoId; });
         if (!todo) return;
-        var prompt = "请打开 Todo「" + todo.title + "」的完成记录。taskId=" + todo.completionThreadId + "，turnId=" + todo.completionTurnId;
+        receiptReturnFocus = document.activeElement;
+        state.receiptTodoId = todoId;
+        state.receiptResult = null;
+        state.receiptLoading = true;
+        state.receiptError = "";
+        renderReceipt();
         try {
-          await sendHostMessage(prompt, false);
-          showToast("已请求打开完成记录");
+          var response = await callTool("get_todo_result", { todoId: todoId });
+          if (state.receiptTodoId !== todoId) return;
+          var result = toolValue(response);
+          if (!result || typeof result.answer !== "string" || !Array.isArray(result.artifacts)) {
+            throw new Error("未收到可展示的执行结果");
+          }
+          state.receiptResult = result;
         } catch (error) {
-          showToast(friendlyError(error), true);
+          if (state.receiptTodoId !== todoId) return;
+          state.receiptError = friendlyError(error);
+        } finally {
+          if (state.receiptTodoId === todoId) {
+            state.receiptLoading = false;
+            renderReceipt();
+          }
         }
+      }
+
+      function closeReceipt() {
+        var returnFocus = receiptReturnFocus;
+        receiptReturnFocus = null;
+        state.receiptTodoId = "";
+        state.receiptResult = null;
+        state.receiptLoading = false;
+        state.receiptError = "";
+        renderReceipt();
+        if (returnFocus && returnFocus.isConnected && typeof returnFocus.focus === "function") returnFocus.focus();
       }
 
       function persistUiState() {
@@ -33028,6 +33302,23 @@ var WHOMI_HTML = String.raw`<!doctype html>
           window.openai.requestDisplayMode({ mode: "fullscreen" });
         } else {
           showToast("当前宿主不支持全屏组件", true);
+        }
+      });
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && state.receiptTodoId) closeReceipt();
+        if (event.key === "Tab" && state.receiptTodoId) {
+          var dialog = document.querySelector(".receiptDialog");
+          var focusable = dialog ? Array.from(dialog.querySelectorAll("button:not(:disabled)")) : [];
+          if (!focusable.length) return;
+          var first = focusable[0];
+          var last = focusable[focusable.length - 1];
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
         }
       });
 
@@ -33320,12 +33611,15 @@ server.registerTool(
   async (input) => result(service.complete(input.todoId, input))
 );
 server.registerTool(
-  "get_todo_completion",
+  "get_todo_result",
   {
-    title: "Get Todo Completion",
-    description: "Return completion details, including the exact taskId and turnId for routing.",
-    inputSchema: { todoId: external_exports.string() }
+    title: "Get Todo Result",
+    description: "Return only the AI's final answer and produced files or links for a completed Todo. Internal task and turn identifiers are used only for lookup.",
+    inputSchema: { todoId: external_exports.string() },
+    outputSchema: { result: external_exports.any() },
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    _meta: WIDGET_CALLABLE_META
   },
-  async (input) => result(service.getTodo(input.todoId))
+  async (input) => result(await service.getTodoResult(input.todoId))
 );
 await server.connect(new StdioServerTransport());

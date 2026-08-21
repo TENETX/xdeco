@@ -417,6 +417,80 @@ export const WHOMI_HTML = String.raw`<!doctype html>
     .manualProjectFields.open { display: grid; }
     .formActions { display: flex; justify-content: flex-end; gap: 7px; padding-top: 2px; }
 
+    .receiptOverlay {
+      position: fixed;
+      z-index: 15;
+      inset: 0;
+      display: grid;
+      padding: 16px;
+      place-items: center;
+      background: rgb(18 22 17 / 38%);
+      backdrop-filter: blur(6px);
+    }
+    .receiptDialog {
+      width: min(460px, 100%);
+      max-height: min(620px, calc(100vh - 32px));
+      padding: 16px;
+      overflow-y: auto;
+      background: var(--raised);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 24px 70px rgb(16 21 14 / 24%), 0 2px 8px rgb(16 21 14 / 10%);
+    }
+    .receiptHeader { display: flex; align-items: flex-start; gap: 12px; }
+    .receiptHeading { min-width: 0; flex: 1; }
+    .receiptEyebrow { display: inline-flex; align-items: center; gap: 5px; color: var(--moss); font-size: 9.5px; font-weight: 720; }
+    .receiptEyebrow svg { width: 13px; height: 13px; }
+    .receiptHeading h2 { margin: 4px 0 0; font-size: 16px; line-height: 1.35; letter-spacing: -.02em; text-wrap: balance; }
+    .receiptClose { margin: -4px -4px 0 0; }
+    .resultSection { display: grid; gap: 7px; margin-top: 16px; }
+    .resultSectionHeader { display: flex; min-height: 28px; align-items: center; justify-content: space-between; gap: 8px; }
+    .resultSectionHeader h3 { margin: 0; font-size: 10px; font-weight: 720; letter-spacing: .02em; }
+    .resultCopyButton { min-height: 28px; padding: 0 8px; }
+    .answerCard {
+      padding: 12px;
+      color: var(--ink);
+      background: color-mix(in srgb, var(--moss) 7%, var(--surface));
+      border: 1px solid color-mix(in srgb, var(--moss) 14%, var(--line));
+      border-radius: 11px;
+      font-size: 11px;
+      line-height: 1.6;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+      text-wrap: pretty;
+    }
+    .answerCard.muted { color: var(--muted); }
+    .artifactList { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+    .artifactItem {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr) 34px;
+      align-items: center;
+      gap: 8px;
+      min-height: 52px;
+      padding: 7px;
+      background: color-mix(in srgb, var(--ink) 3%, var(--surface));
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+    .artifactMark { display: grid; width: 28px; height: 28px; place-items: center; color: var(--moss); background: var(--moss-soft); border-radius: 8px; }
+    .artifactMark svg { width: 14px; height: 14px; }
+    .artifactText { min-width: 0; }
+    .artifactText strong { display: block; overflow: hidden; font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+    .artifactText code {
+      display: block;
+      margin-top: 2px;
+      overflow: hidden;
+      color: var(--muted);
+      font: 8.5px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .copyButton { min-width: 34px; height: 34px; color: var(--muted); background: transparent; border: 0; border-radius: 8px; }
+    .copyButton:hover { color: var(--moss); background: var(--moss-soft); }
+    .resultEmpty { padding: 12px; color: var(--muted); background: color-mix(in srgb, var(--ink) 3%, var(--surface)); border: 1px dashed var(--line-strong); border-radius: 10px; font-size: 10px; text-align: center; }
+    .resultLoading { display: grid; min-height: 170px; place-items: center; align-content: center; gap: 10px; color: var(--muted); font-size: 10px; }
+    .receiptActions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 14px; }
+
     .toast {
       position: fixed;
       z-index: 20;
@@ -462,6 +536,8 @@ export const WHOMI_HTML = String.raw`<!doctype html>
       .planFormGrid { grid-template-columns: 1fr; }
       .planFormGrid .wide { grid-column: auto; }
       .manualProjectFields { grid-column: auto; grid-template-columns: 1fr; }
+      .receiptOverlay { padding: 10px; }
+      .receiptDialog { max-height: calc(100vh - 20px); padding: 14px; border-radius: 16px; }
     }
 
     @media (prefers-color-scheme: dark) {
@@ -513,6 +589,7 @@ export const WHOMI_HTML = String.raw`<!doctype html>
       </main>
     </section>
   </div>
+  <div id="receiptLayer"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script>
     (function () {
@@ -540,11 +617,16 @@ export const WHOMI_HTML = String.raw`<!doctype html>
         planFormOpen: false,
         busyTodoId: "",
         captureFile: null,
-        draftTodo: ""
+        draftTodo: "",
+        receiptTodoId: "",
+        receiptResult: null,
+        receiptLoading: false,
+        receiptError: ""
       };
       var pending = new Map();
       var nextRequestId = 1;
       var toastTimer;
+      var receiptReturnFocus = null;
 
       function icon(name) {
         var icons = {
@@ -556,6 +638,7 @@ export const WHOMI_HTML = String.raw`<!doctype html>
           arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 17 17 7M9 7h8v8"/></svg>',
           image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m4 17 5-4 3 3 3-2 5 4"/></svg>',
           folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 6h7l2 2h9v10H3V6Z"/></svg>',
+          copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
           chevron: '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 10 5 5 5-5"/></svg>'
         };
         return icons[name] || "";
@@ -672,6 +755,29 @@ export const WHOMI_HTML = String.raw`<!doctype html>
         return Math.floor(hours / 24) + " 天前";
       }
 
+      async function copyText(value, label) {
+        var textarea = null;
+        try {
+          if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+            await navigator.clipboard.writeText(value);
+          } else {
+            textarea = document.createElement("textarea");
+            textarea.value = value;
+            textarea.setAttribute("readonly", "");
+            textarea.style.position = "fixed";
+            textarea.style.opacity = "0";
+            document.body.appendChild(textarea);
+            textarea.select();
+            if (!document.execCommand("copy")) throw new Error("copy failed");
+          }
+          showToast(label + "已复制");
+        } catch (error) {
+          showToast("复制失败，请手动选择", true);
+        } finally {
+          if (textarea && textarea.isConnected) textarea.remove();
+        }
+      }
+
       function selectedPlan() {
         if (!state.overview || !state.selectedPlanId) return null;
         return state.overview.plans.find(function (plan) { return plan.id === state.selectedPlanId; }) || null;
@@ -764,6 +870,62 @@ export const WHOMI_HTML = String.raw`<!doctype html>
         '</article>';
       }
 
+      function renderReceipt() {
+        var layer = document.getElementById("receiptLayer");
+        var todo = state.overview && state.receiptTodoId
+          ? state.overview.todos.find(function (item) { return item.id === state.receiptTodoId; })
+          : null;
+        if (!todo) {
+          layer.innerHTML = "";
+          return;
+        }
+        var result = state.receiptResult;
+        var body = "";
+        if (state.receiptLoading) {
+          body = '<div class="resultLoading"><div class="spinner"></div><span>正在读取 AI 回复和产出物…</span></div>';
+        } else if (state.receiptError) {
+          body = '<div class="resultSection"><div class="resultEmpty">暂时无法读取这次结果，请稍后重试。</div></div>';
+        } else {
+          var answer = result && result.answer ? result.answer : "这次没有留下可展示的 AI 回复。";
+          var artifacts = result && Array.isArray(result.artifacts) ? result.artifacts : [];
+          var artifactRows = artifacts.map(function (artifact, index) {
+            return '<li class="artifactItem"><span class="artifactMark">' + icon(artifact.kind === "file" ? "folder" : "arrow") + '</span>' +
+              '<span class="artifactText"><strong>' + escapeHtml(artifact.name || "产出物") + '</strong><code title="' + escapeHtml(artifact.uri || "") + '">' + escapeHtml(artifact.uri || "") + '</code></span>' +
+              '<button class="iconButton copyButton" type="button" data-copy-artifact="' + index + '" aria-label="复制产出物地址" title="复制地址">' + icon("copy") + '</button></li>';
+          }).join("");
+          body = '<section class="resultSection"><div class="resultSectionHeader"><h3>AI 回复</h3><button class="smallButton resultCopyButton" id="copyReceiptAnswer" type="button">' + icon("copy") + '复制</button></div>' +
+            '<div class="answerCard ' + (result && result.answer ? "" : "muted") + '">' + escapeHtml(answer) + '</div></section>' +
+            '<section class="resultSection"><div class="resultSectionHeader"><h3>产出物</h3></div>' +
+            (artifactRows ? '<ul class="artifactList">' + artifactRows + '</ul>' : '<div class="resultEmpty">这次没有生成文件或链接。</div>') + '</section>';
+        }
+        layer.innerHTML = '<div class="receiptOverlay" id="receiptOverlay">' +
+          '<section class="receiptDialog" role="dialog" aria-modal="true" aria-labelledby="receiptTitle">' +
+            '<header class="receiptHeader"><div class="receiptHeading"><span class="receiptEyebrow">' + icon("check") + '执行结果</span><h2 id="receiptTitle">' + escapeHtml(todo.title) + '</h2></div>' +
+            '<button class="iconButton receiptClose" id="closeReceipt" type="button" aria-label="关闭执行结果" title="关闭">×</button></header>' +
+            body +
+            '<footer class="receiptActions"><button class="primaryButton" id="doneReceipt" type="button">关闭</button></footer>' +
+          '</section></div>';
+        document.getElementById("closeReceipt").addEventListener("click", closeReceipt);
+        document.getElementById("doneReceipt").addEventListener("click", closeReceipt);
+        var copyAnswer = document.getElementById("copyReceiptAnswer");
+        if (copyAnswer) copyAnswer.addEventListener("click", function () {
+          if (state.receiptResult && state.receiptResult.answer) copyText(state.receiptResult.answer, "AI 回复");
+        });
+        document.querySelectorAll("[data-copy-artifact]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            var index = Number(button.getAttribute("data-copy-artifact"));
+            var artifact = state.receiptResult && state.receiptResult.artifacts
+              ? state.receiptResult.artifacts[index]
+              : null;
+            if (artifact && artifact.uri) copyText(artifact.uri, "产出物地址");
+          });
+        });
+        document.getElementById("receiptOverlay").addEventListener("click", function (event) {
+          if (event.target === event.currentTarget) closeReceipt();
+        });
+        document.getElementById("closeReceipt").focus();
+      }
+
       function render() {
         if (!state.overview) return;
         var plans = state.overview.plans || [];
@@ -795,6 +957,7 @@ export const WHOMI_HTML = String.raw`<!doctype html>
           list;
 
         bindContentEvents();
+        renderReceipt();
         notifyHeight();
       }
 
@@ -1075,13 +1238,40 @@ export const WHOMI_HTML = String.raw`<!doctype html>
       async function openReceipt(todoId) {
         var todo = state.overview.todos.find(function (item) { return item.id === todoId; });
         if (!todo) return;
-        var prompt = "请打开 Todo「" + todo.title + "」的完成记录。taskId=" + todo.completionThreadId + "，turnId=" + todo.completionTurnId;
+        receiptReturnFocus = document.activeElement;
+        state.receiptTodoId = todoId;
+        state.receiptResult = null;
+        state.receiptLoading = true;
+        state.receiptError = "";
+        renderReceipt();
         try {
-          await sendHostMessage(prompt, false);
-          showToast("已请求打开完成记录");
+          var response = await callTool("get_todo_result", { todoId: todoId });
+          if (state.receiptTodoId !== todoId) return;
+          var result = toolValue(response);
+          if (!result || typeof result.answer !== "string" || !Array.isArray(result.artifacts)) {
+            throw new Error("未收到可展示的执行结果");
+          }
+          state.receiptResult = result;
         } catch (error) {
-          showToast(friendlyError(error), true);
+          if (state.receiptTodoId !== todoId) return;
+          state.receiptError = friendlyError(error);
+        } finally {
+          if (state.receiptTodoId === todoId) {
+            state.receiptLoading = false;
+            renderReceipt();
+          }
         }
+      }
+
+      function closeReceipt() {
+        var returnFocus = receiptReturnFocus;
+        receiptReturnFocus = null;
+        state.receiptTodoId = "";
+        state.receiptResult = null;
+        state.receiptLoading = false;
+        state.receiptError = "";
+        renderReceipt();
+        if (returnFocus && returnFocus.isConnected && typeof returnFocus.focus === "function") returnFocus.focus();
       }
 
       function persistUiState() {
@@ -1136,6 +1326,23 @@ export const WHOMI_HTML = String.raw`<!doctype html>
           window.openai.requestDisplayMode({ mode: "fullscreen" });
         } else {
           showToast("当前宿主不支持全屏组件", true);
+        }
+      });
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && state.receiptTodoId) closeReceipt();
+        if (event.key === "Tab" && state.receiptTodoId) {
+          var dialog = document.querySelector(".receiptDialog");
+          var focusable = dialog ? Array.from(dialog.querySelectorAll("button:not(:disabled)")) : [];
+          if (!focusable.length) return;
+          var first = focusable[0];
+          var last = focusable[focusable.length - 1];
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
         }
       });
 

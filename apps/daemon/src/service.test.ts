@@ -45,6 +45,37 @@ test("completion stores the originating task and turn", () => {
   database.close();
 });
 
+test("completion result exposes the AI answer and artifacts without routing metadata", async () => {
+  const database = new PlanDatabase(":memory:");
+  const codex = {
+    available: async () => true,
+    readTurnResult: async (threadId: string, turnId: string) => {
+      assert.equal(threadId, "thr_result");
+      assert.equal(turnId, "turn_result");
+      return {
+        answer: "实现完成，测试已通过。",
+        artifacts: [{ kind: "file", name: "result.md", uri: "/tmp/result.md" }],
+      };
+    },
+  } as any;
+  try {
+    const service = new PlanService(database, codex);
+    const todo = service.createTodo({ title: "show result" });
+    service.complete(todo.id, { threadId: "thr_result", turnId: "turn_result" });
+
+    const result = await service.getTodoResult(todo.id);
+    assert.deepEqual(result, {
+      title: "show result",
+      answer: "实现完成，测试已通过。",
+      artifacts: [{ kind: "file", name: "result.md", uri: "/tmp/result.md" }],
+    });
+    assert.equal("completionThreadId" in result, false);
+    assert.equal("completionTurnId" in result, false);
+  } finally {
+    database.close();
+  }
+});
+
 test("launch sends a Todo to the selected Codex task without renaming it", async () => {
   const projectRoot = await mkdtemp(join(tmpdir(), "plan-route-test-"));
   const calls: Array<{ method: string; params?: Record<string, unknown> }> = [];

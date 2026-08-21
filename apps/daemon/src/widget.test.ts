@@ -40,3 +40,18 @@ test("whomi starts Todos through the current Codex task host bridge", () => {
   assert.doesNotMatch(WHOMI_HTML, /callTool\("start_todo", \{ todoId: todoId \}\)/);
   assert.match(WHOMI_HTML, /当前 task 启动/);
 });
+
+test("whomi shows the AI answer and artifacts without exposing routing metadata", () => {
+  assert.match(WHOMI_HTML, /class="receiptDialog" role="dialog"/);
+  assert.match(WHOMI_HTML, /callTool\("get_todo_result", \{ todoId: todoId \}\)/);
+  assert.match(WHOMI_HTML, />AI 回复</);
+  assert.match(WHOMI_HTML, />产出物</);
+  assert.match(WHOMI_HTML, /state\.receiptResult\.answer/);
+  assert.match(WHOMI_HTML, /state\.receiptResult\.artifacts/);
+  assert.match(WHOMI_HTML, /state\.receiptTodoId = todoId/);
+  assert.doesNotMatch(WHOMI_HTML, /复制定位信息/);
+  assert.doesNotMatch(WHOMI_HTML, /<span>Codex task<\/span>/);
+  assert.doesNotMatch(WHOMI_HTML, /<span>Turn<\/span>/);
+  assert.doesNotMatch(WHOMI_HTML, /请打开 Todo/);
+  assert.doesNotMatch(WHOMI_HTML, /已请求打开完成记录/);
+});

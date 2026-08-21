@@ -10,6 +10,7 @@ import type {
   Overview,
   Plan,
   Todo,
+  TodoResult,
   TodoRun,
   TodoStatus,
 } from "@whomi/shared";
@@ -350,6 +351,24 @@ export class PlanService {
     const todo = this.database.completeTodo(id, threadId, turnId, input.summary?.trim() ?? "");
     if (!todo) throw new Error("Todo not found");
     return todo;
+  }
+
+  async getTodoResult(id: string): Promise<TodoResult> {
+    const todo = this.getTodo(id);
+    if (!todo.completionThreadId || !todo.completionTurnId) {
+      throw new Error("Todo does not have a completion result");
+    }
+    try {
+      const result = await this.codex.readTurnResult(todo.completionThreadId, todo.completionTurnId);
+      return {
+        title: todo.title,
+        answer: result.answer || todo.completionSummary || "",
+        artifacts: result.artifacts,
+      };
+    } catch (error) {
+      if (!todo.completionSummary) throw error;
+      return { title: todo.title, answer: todo.completionSummary, artifacts: [] };
+    }
   }
 
   async ensureWorktree(planId: string, baseRef = "HEAD"): Promise<Plan> {

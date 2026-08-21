@@ -303,13 +303,16 @@ server.registerTool(
 );
 
 server.registerTool(
-  "get_todo_completion",
+  "get_todo_result",
   {
-    title: "Get Todo Completion",
-    description: "Return completion details, including the exact taskId and turnId for routing.",
+    title: "Get Todo Result",
+    description: "Return only the AI's final answer and produced files or links for a completed Todo. Internal task and turn identifiers are used only for lookup.",
     inputSchema: { todoId: z.string() },
+    outputSchema: { result: z.any() },
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    _meta: WIDGET_CALLABLE_META,
   },
-  async (input) => result(service.getTodo(input.todoId)),
+  async (input) => result(await service.getTodoResult(input.todoId)),
 );
 
 await server.connect(new StdioServerTransport());

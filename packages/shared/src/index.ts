@@ -70,6 +70,18 @@ export interface Todo {
   completionSummary: string | null;
 }
 
+export interface TodoArtifact {
+  kind: "file" | "link";
+  name: string;
+  uri: string;
+}
+
+export interface TodoResult {
+  title: string;
+  answer: string;
+  artifacts: TodoArtifact[];
+}
+
 export interface TodoRun {
   id: string;
   todoId: string;
