@@ -112,6 +112,7 @@ capture_todos
 list_todos
 set_todo_status
 retry_todo
+get_todo_result
 
 create_project
 list_projects
