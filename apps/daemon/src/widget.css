@@ -1,0 +1,241 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@source "./widget.ts";
+
+:root {
+  color-scheme: light dark;
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.205 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.205 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.205 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.269 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.955 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --success: oklch(0.56 0.12 145);
+  --running: oklch(0.57 0.12 292);
+  --queued: oklch(0.56 0.11 245);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --success: oklch(0.7 0.14 145);
+    --running: oklch(0.7 0.13 292);
+    --queued: oklch(0.7 0.12 245);
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-running: var(--running);
+  --color-queued: var(--queued);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --animate-dialog-in: dialog-in 180ms cubic-bezier(.16, 1, .3, 1);
+  --animate-overlay-in: overlay-in 140ms ease-out;
+}
+
+@layer base {
+  * { @apply border-border; }
+  html { @apply min-h-full min-w-[300px] antialiased; }
+  body { @apply m-0 min-h-full bg-background text-[13px] leading-relaxed text-foreground; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-rendering: optimizeLegibility; }
+  button:not(:disabled) { cursor: pointer; }
+  button, input { font: inherit; }
+  button:focus-visible, input:focus-visible { @apply outline-none ring-2 ring-ring/50 ring-offset-2 ring-offset-background; }
+}
+
+@layer components {
+  .shell { @apply min-h-svh bg-background; }
+  .topbar { @apply flex min-h-14 items-center gap-2.5 border-b px-4 py-2; }
+  .brandMark { @apply grid size-8 shrink-0 place-items-center rounded-lg bg-secondary text-secondary-foreground; }
+  .brandMark svg { @apply size-4; }
+  .brandCopy { @apply min-w-0 flex-1; }
+  .brandCopy strong { @apply block truncate text-[13px] font-semibold tracking-[-0.015em]; }
+  .brandCopy span { @apply block text-[10px] text-muted-foreground; }
+  .connection { @apply inline-flex items-center gap-1.5 whitespace-nowrap text-[10px] text-muted-foreground; }
+  .connection i { @apply size-1.5 rounded-full bg-destructive; }
+  .connection.connected i { @apply bg-success; }
+
+  .layout { @apply grid min-h-[480px] grid-cols-[minmax(220px,260px)_minmax(0,1fr)]; }
+  .sidebar { @apply min-w-0 border-r bg-muted/45 p-2.5; }
+  .sidebarHeader { @apply flex min-h-10 items-center gap-2 px-1 pb-1.5 pl-2; }
+  .sidebarHeader h2 { @apply min-w-0 flex-1 text-[11px] font-medium text-muted-foreground; }
+  .newButton { @apply inline-flex min-h-8 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium text-foreground transition-[background-color,transform] duration-150 hover:bg-accent active:scale-[.97]; }
+  .newButton svg { @apply size-3.5; }
+  .tree { @apply grid gap-0.5; }
+  .projectToggle, .threadButton { @apply flex w-full items-center gap-2 rounded-md bg-transparent text-left text-muted-foreground transition-[color,background-color,transform] duration-150 hover:bg-accent hover:text-accent-foreground active:scale-[.985]; }
+  .projectToggle { @apply min-h-9 px-2 py-1; }
+  .projectToggle svg { @apply size-3.5 shrink-0; }
+  .projectToggle .chevron { @apply size-2.5 transition-transform duration-200 ease-out; }
+  .projectToggle.expanded .chevron { @apply rotate-90; }
+  .projectToggle span { @apply min-w-0 flex-1 truncate text-[11.5px] font-medium; }
+  .projectToggle em { @apply text-[9px] not-italic tabular-nums; }
+  .threadList { @apply ml-6 max-h-0 overflow-hidden opacity-0 transition-[max-height,opacity] duration-200 ease-out; }
+  .threadList.expanded { @apply max-h-[1600px] opacity-100; }
+  .threadButton { @apply min-h-9 px-2 py-1; }
+  .threadButton.active { @apply bg-accent text-accent-foreground; }
+  .threadButton svg { @apply size-3.5 shrink-0; }
+  .threadButton span { @apply min-w-0 flex-1 truncate text-[11px]; }
+  .threadButton em { @apply text-[9px] not-italic tabular-nums; }
+  .sideEmpty { @apply px-3 py-8 text-center text-[11px] text-muted-foreground; }
+  .sideEmpty .button { @apply mt-2.5; }
+
+  .workspace { @apply min-w-0 px-[clamp(18px,3vw,38px)] py-7; }
+  .workspace > .taskHeader, .workspace > .composer, .workspace > .todoSection, .workspace > .empty { @apply max-w-[820px]; }
+  .taskHeader { @apply flex items-start gap-3.5 border-b pb-5; }
+  .taskHeading { @apply min-w-0 flex-1; }
+  .taskHeading h1 { @apply m-0 text-balance text-[21px] font-semibold leading-tight tracking-[-0.025em]; }
+  .taskHeading p { @apply mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground; }
+  .taskHeading p svg { @apply size-3.5; }
+  .statusSummary { @apply inline-flex min-h-7 items-center gap-1.5 rounded-full bg-muted px-2.5 text-[10px] text-muted-foreground; }
+  .statusSummary i { @apply size-1.5 rounded-full bg-muted-foreground/60; }
+  .statusSummary.active i { @apply bg-running; }
+
+  .composer { @apply my-5 grid grid-cols-[minmax(0,1fr)_auto] gap-2; }
+  .input { @apply h-10 rounded-md border border-input bg-background px-3 text-[12px] shadow-xs transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 focus:border-ring; }
+  .button { @apply inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md border border-input bg-background px-3 text-[11px] font-medium shadow-xs transition-[background-color,border-color,transform,opacity] duration-150 hover:bg-accent hover:text-accent-foreground active:scale-[.97] disabled:pointer-events-none disabled:opacity-45; }
+  .button.primary { @apply border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground; }
+  .button svg { @apply size-3.5; }
+
+  .todoSection { @apply mt-2; }
+  .sectionTitle { @apply flex min-h-9 items-center justify-between gap-2 text-[10px] text-muted-foreground; }
+  .sectionTitle strong { @apply text-[12px] font-semibold text-foreground; }
+  .sectionTitle span { @apply tabular-nums; }
+  .todoList { @apply border-t; }
+  .todoRow { @apply grid min-h-16 grid-cols-[8px_minmax(0,1fr)_auto] items-center gap-2.5 border-b px-0.5 py-2.5; }
+  .statusDot { @apply size-2 rounded-full bg-muted-foreground/50; }
+  .statusDot.ready { @apply bg-queued; }
+  .statusDot.sending, .statusDot.running { @apply bg-running; }
+  .statusDot.completed { @apply bg-success; }
+  .statusDot.failed { @apply bg-destructive; }
+  .todoCopy { @apply min-w-0; }
+  .todoCopy strong { @apply block truncate text-[12px] font-medium; }
+  .todoCopy span { @apply mt-0.5 block text-[10px] text-muted-foreground; }
+  .todoActions { @apply flex items-center gap-1.5; }
+  .statusText { @apply whitespace-nowrap text-[10px] text-muted-foreground; }
+  .miniButton { @apply min-h-8 rounded-md px-2.5 text-[10px]; }
+
+  .empty { @apply grid min-h-56 place-items-center content-center gap-2 p-6 text-center text-muted-foreground; }
+  .empty > svg { @apply size-6 text-muted-foreground/70; }
+  .empty strong { @apply text-[13px] font-medium text-foreground; }
+  .empty p { @apply m-0 max-w-[38ch] text-pretty text-[11px]; }
+  .empty .button { @apply mt-1; }
+
+  .overlay { @apply fixed inset-0 z-20 grid place-items-center overflow-y-auto bg-black/40 p-4 animate-overlay-in; }
+  .dialog { @apply my-auto max-h-[calc(100svh-32px)] w-full max-w-[620px] overflow-y-auto rounded-xl border bg-popover p-4 text-popover-foreground shadow-2xl animate-dialog-in; scrollbar-width: thin; scrollbar-color: color-mix(in oklab, var(--muted-foreground) 45%, transparent) transparent; }
+  .dialogHeader { @apply flex items-center gap-2.5; }
+  .dialogHeader h2 { @apply min-w-0 flex-1 text-balance text-base font-semibold tracking-[-0.018em]; }
+  .iconButton { @apply grid size-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-[color,background-color,transform] duration-150 hover:bg-accent hover:text-accent-foreground active:scale-[.96]; }
+  .iconButton svg { @apply size-4; }
+  .pickerSearch { @apply relative mt-3 block; }
+  .pickerSearch > svg { @apply pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground; }
+  .pickerSearch .input { @apply w-full pl-9; }
+  .pickerList { @apply mt-3 grid gap-1.5; }
+  .pickerProjectToggle { @apply flex min-h-9 w-full items-center gap-2 rounded-md px-2 text-left text-muted-foreground transition-[color,background-color,transform] duration-150 hover:bg-accent hover:text-accent-foreground active:scale-[.99]; }
+  .pickerProjectToggle svg { @apply size-3.5 shrink-0; }
+  .pickerProjectToggle .chevron { @apply size-2.5 transition-transform duration-200 ease-out; }
+  .pickerProjectToggle.expanded .chevron { @apply rotate-90; }
+  .pickerProjectToggle span { @apply min-w-0 flex-1 truncate text-[11px] font-medium; }
+  .pickerProjectToggle em { @apply text-[9px] not-italic tabular-nums; }
+  .pickerThreads { @apply ml-6 max-h-0 overflow-hidden opacity-0 transition-[max-height,opacity] duration-200 ease-out; }
+  .pickerThreads.expanded { @apply max-h-[4000px] opacity-100; }
+  .pickerThread { @apply grid min-h-9 w-full grid-cols-[15px_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 py-1 text-left text-foreground transition-[background-color,transform,opacity] duration-150 hover:bg-accent active:scale-[.99] disabled:pointer-events-none disabled:opacity-45; }
+  .pickerThread > svg { @apply size-3.5 text-muted-foreground; }
+  .pickerThread strong { @apply block min-w-0 truncate text-[11px] font-normal; }
+  .pickerThread em { @apply flex items-center gap-1 text-[9px] not-italic text-muted-foreground; }
+  .pickerThread em svg { @apply size-3; }
+  .pickerEmpty { @apply px-3 py-10 text-center text-[11px] text-muted-foreground; }
+
+  .resultSection { @apply mt-4; }
+  .resultSection h3 { @apply mb-2 text-[11px] font-medium; }
+  .answer { @apply whitespace-pre-wrap break-words rounded-lg bg-muted p-3 text-pretty text-[11px] leading-relaxed; }
+  .artifactList { @apply m-0 grid list-none gap-1.5 p-0; }
+  .artifact { @apply grid min-h-12 grid-cols-[28px_minmax(0,1fr)] items-center gap-2 rounded-lg bg-muted p-2; }
+  .artifact > svg { @apply m-auto size-4 text-muted-foreground; }
+  .artifact strong, .artifact code { @apply block truncate; }
+  .artifact strong { @apply text-[11px] font-medium; }
+  .artifact code { @apply mt-0.5 text-[9px] text-muted-foreground; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .loading { @apply grid min-h-44 place-items-center content-center gap-2 text-[10px] text-muted-foreground; }
+  .spinner { @apply size-5 animate-spin rounded-full border-2 border-border border-t-foreground; }
+  .toast { @apply pointer-events-none fixed right-4 bottom-4 z-30 max-w-[min(320px,calc(100vw-32px))] translate-y-2 rounded-md bg-primary px-3 py-2 text-[11px] text-primary-foreground opacity-0 shadow-xl transition-[opacity,transform] duration-150; }
+  .toast.show { @apply translate-y-0 opacity-100; }
+  .toast.error { @apply bg-destructive text-white; }
+}
+
+@media (max-width: 680px) {
+  .layout { @apply grid-cols-1; }
+  .sidebar { @apply max-h-[42svh] overflow-y-auto border-r-0 border-b; }
+  .workspace { @apply px-4 py-5; }
+  .taskHeader { @apply pb-4; }
+  .taskHeading h1 { @apply text-lg; }
+  .composer { @apply grid-cols-1; }
+  .composer .button { @apply w-full; }
+  .todoRow { @apply grid-cols-[8px_minmax(0,1fr)]; }
+  .todoActions { @apply col-start-2 justify-start; }
+  .connection span { @apply hidden; }
+  .dialog { @apply max-h-[calc(100svh-20px)] rounded-lg; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
+}
+
+@keyframes dialog-in {
+  from { opacity: 0; transform: translateY(8px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes overlay-in {
+  from { background-color: rgb(0 0 0 / 0%); }
+  to { background-color: rgb(0 0 0 / 40%); }
+}

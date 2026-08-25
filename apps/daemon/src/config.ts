@@ -9,6 +9,8 @@ export const CODEX_HOME = process.env.CODEX_HOME
   : join(homedir(), ".codex");
 
 export const CODEX_GLOBAL_STATE_PATH = join(CODEX_HOME, ".codex-global-state.json");
+export const CODEX_STATE_DATABASE_PATH = join(CODEX_HOME, "state_5.sqlite");
+export const CODEX_SESSION_INDEX_PATH = join(CODEX_HOME, "session_index.jsonl");
 
 export const DATA_DIR = process.env.WHOMI_DATA_DIR
   ? resolve(process.env.WHOMI_DATA_DIR)

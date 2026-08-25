@@ -15,6 +15,7 @@ import { CAPTURE_MODEL, EXECUTION_MODEL } from "./config.js";
 import { CodexAppServer } from "./app-server.js";
 import { WhomiDatabase } from "./database.js";
 import { CodexProjectCatalog, type ProjectCatalog } from "./projects.js";
+import { CodexThreadCatalog, type ThreadCatalog } from "./threads.js";
 
 const CAPTURE_SCHEMA = {
   type: "object",
@@ -43,14 +44,20 @@ export class WhomiService {
     readonly database = new WhomiDatabase(),
     readonly codex = new CodexAppServer(),
     readonly projectCatalog: ProjectCatalog = new CodexProjectCatalog(),
-  ) {}
+    readonly threadCatalog: ThreadCatalog = new CodexThreadCatalog(),
+  ) {
+    this.restoreActiveQueues();
+  }
 
   async overview(projectId?: string): Promise<Overview> {
     const todos = this.database.listTodos(projectId, true);
     const [codexProjects, codexAvailable, codexThreads] = await Promise.all([
       this.projectCatalog.list(),
-      this.codex.available(),
-      this.codex.listThreads().catch(() => []),
+      Promise.race([
+        this.codex.available(),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 1_500)),
+      ]),
+      this.threadCatalog.list(500),
     ]);
     return {
       projects: this.database.listProjects(),
@@ -216,6 +223,52 @@ export class WhomiService {
     const task = this.runQueue(projectId).finally(() => this.dispatchers.delete(projectId));
     this.dispatchers.set(projectId, task);
     void task;
+  }
+
+  private restoreActiveQueues(): void {
+    const projectIds = new Set(
+      this.database.listTodos(undefined, true)
+        .filter((todo) => todo.projectId && (todo.status === "sending" || todo.status === "running"))
+        .map((todo) => todo.projectId!),
+    );
+    for (const projectId of projectIds) {
+      const task = this.recoverProjectQueue(projectId).finally(() => this.dispatchers.delete(projectId));
+      this.dispatchers.set(projectId, task);
+      void task;
+    }
+  }
+
+  private async recoverProjectQueue(projectId: string): Promise<void> {
+    const todo = this.database.listTodos(projectId, true)
+      .find((candidate) => candidate.status === "sending" || candidate.status === "running");
+    if (!todo) return;
+    const run = this.database.latestRun(todo.id);
+    if (!run) {
+      this.database.updateTodoStatus(todo.id, "failed", undefined, "whomi 重启后无法找到这次 Codex 执行记录，请重试");
+      return;
+    }
+    try {
+      await this.codex.resumeThread(run.threadId);
+      let finished = await this.codex.readFinishedTurn(run.threadId, run.turnId);
+      if (!finished) finished = await this.codex.waitForTurn(run.turnId, 24 * 60 * 60 * 1000);
+      if (finished.status !== "completed") {
+        const message = finished.error ?? `Codex turn ${finished.status}`;
+        this.database.updateRunByTurn(run.turnId, finished.status, message);
+        this.database.updateTodoStatus(todo.id, "failed", undefined, message);
+        return;
+      }
+      if (!finished.text) {
+        const result = await this.codex.readTurnResult(run.threadId, run.turnId);
+        finished = { ...finished, text: result.answer };
+      }
+      this.database.updateRunByTurn(run.turnId, "completed", null);
+      this.database.completeTodo(todo.id, run.threadId, run.turnId, finished.text);
+      await this.runQueue(projectId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.database.updateRunByTurn(run.turnId, "failed", message);
+      this.database.updateTodoStatus(todo.id, "failed", undefined, message);
+    }
   }
 
   private async runQueue(projectId: string): Promise<void> {

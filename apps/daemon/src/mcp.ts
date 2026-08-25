@@ -47,7 +47,7 @@ server.registerResource("whomi", WHOMI_URI, {}, async () => ({
     text: WHOMI_HTML,
     _meta: {
       ui: { prefersBorder: true },
-      "openai/widgetDescription": "A compact project and Todo queue. Ready Todos are sent to each project's Codex task one at a time.",
+      "openai/widgetDescription": "A compact Codex-style Todo workspace. Group associated tasks by project, add a task from a searchable picker, and send Todos sequentially.",
       "openai/widgetPrefersBorder": true,
     },
   }],

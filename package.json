@@ -8,7 +8,7 @@
     "dev:web": "concurrently -n api,web -c cyan,magenta \"pnpm --filter @whomi/daemon dev:http\" \"pnpm --filter @whomi/web dev\"",
     "start:web": "concurrently -n api,web -c cyan,magenta \"pnpm --filter @whomi/daemon start:http\" \"pnpm --filter @whomi/web start\"",
     "build": "pnpm -r build",
-    "build:plugin": "esbuild apps/daemon/src/mcp.ts --bundle --platform=node --format=esm --target=node22 --outfile=plugins/whomi/scripts/mcp.mjs",
+    "build:plugin": "pnpm --filter @whomi/daemon build:widget && esbuild apps/daemon/src/mcp.ts --bundle --platform=node --format=esm --target=node22 --outfile=plugins/whomi/scripts/mcp.mjs",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm --filter @whomi/daemon test",
     "validate:plugin": "bash scripts/validate-plugin.sh"

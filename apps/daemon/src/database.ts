@@ -175,6 +175,8 @@ export class WhomiDatabase {
   }
 
   private importLegacyDatabase(path: string): void {
+    const imported = this.db.prepare("SELECT 1 FROM settings WHERE key = 'legacy_import_completed'").get();
+    if (imported) return;
     const current = this.db.prepare(`
       SELECT
         (SELECT COUNT(*) FROM projects) AS projects,

@@ -125,3 +125,70 @@ test("a failed Todo pauses the remaining project queue", async () => {
   assert.equal(calls, 1);
   database.close();
 });
+
+test("restores a running Codex turn after whomi restarts", async () => {
+  const database = new WhomiDatabase(":memory:");
+  const project = database.createProject("project_restore", {
+    name: "Restore",
+    rootPath: "/workspace/restore",
+    autoDispatch: false,
+  });
+  const todo = database.createTodo("todo_restore", {
+    title: "Finish after restart",
+    projectId: project.id,
+    status: "running",
+  });
+  database.createRun({
+    id: "run_restore",
+    todoId: todo.id,
+    projectId: project.id,
+    threadId: "thread_restore",
+    turnId: "turn_restore",
+    status: "running",
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    error: null,
+  });
+  let resumed = false;
+  let finish!: (value: any) => void;
+  const codex = {
+    readFinishedTurn: async () => null,
+    resumeThread: async (threadId: string) => { resumed = threadId === "thread_restore"; },
+    waitForTurn: async () => new Promise((resolve) => { finish = resolve; }),
+  } as any;
+
+  const service = new WhomiService(database, codex, emptyCatalog);
+  await tick(); await tick();
+  assert.equal(resumed, true);
+  assert.equal(service.getTodo(todo.id).status, "running");
+
+  finish({ status: "completed", text: "recovered answer", error: null });
+  await tick(); await tick();
+  const completed = service.getTodo(todo.id);
+  assert.equal(completed.status, "completed");
+  assert.equal(completed.completionThreadId, "thread_restore");
+  assert.equal(completed.completionTurnId, "turn_restore");
+  assert.equal(completed.completionSummary, "recovered answer");
+  assert.equal(database.latestRun(todo.id)?.status, "completed");
+  database.close();
+});
+
+test("marks an unrecoverable sending Todo as failed after restart", async () => {
+  const database = new WhomiDatabase(":memory:");
+  const project = database.createProject("project_orphan", {
+    name: "Orphan",
+    rootPath: "/workspace/orphan",
+    autoDispatch: false,
+  });
+  const todo = database.createTodo("todo_orphan", {
+    title: "Lost handoff",
+    projectId: project.id,
+    status: "sending",
+  });
+
+  const service = new WhomiService(database, {} as any, emptyCatalog);
+  await tick();
+  assert.equal(service.getTodo(todo.id).status, "failed");
+  assert.match(service.getTodo(todo.id).lastError ?? "", /无法找到.*执行记录/);
+  database.close();
+});

@@ -79,3 +79,36 @@ test("imports legacy rows without modifying the legacy database", async (context
   assert.equal(Boolean(untouched.prepare("SELECT 1 FROM sqlite_master WHERE name = 'projects'").get()), false);
   untouched.close();
 });
+
+test("does not re-import legacy rows after the whomi database is intentionally cleared", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "whomi-clear-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const legacyPath = join(directory, "legacy.sqlite");
+  const targetPath = join(directory, "whomi.sqlite");
+  const legacy = new DatabaseSync(legacyPath);
+  legacy.exec(`
+    CREATE TABLE plans (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL, codex_project_id TEXT, project_name TEXT NOT NULL,
+      project_root TEXT NOT NULL, branch TEXT NOT NULL, worktree_path TEXT NOT NULL, thread_id TEXT,
+      color TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+    CREATE TABLE todos (
+      id TEXT PRIMARY KEY, plan_id TEXT, title TEXT NOT NULL, description TEXT NOT NULL,
+      status TEXT NOT NULL, source_type TEXT NOT NULL, source_path TEXT, position INTEGER NOT NULL,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL, completed_at TEXT,
+      completion_thread_id TEXT, completion_turn_id TEXT, completion_summary TEXT
+    );
+    INSERT INTO plans VALUES ('project_1','Website',NULL,'Website','D:/site','main','D:/site','thread_1','#123456','2026-01-01','2026-01-01');
+  `);
+  legacy.close();
+
+  const database = new WhomiDatabase(targetPath, legacyPath);
+  assert.equal(database.listProjects().length, 1);
+  database.db.exec("DELETE FROM todo_runs; DELETE FROM todos; DELETE FROM projects");
+  database.close();
+
+  const reopened = new WhomiDatabase(targetPath, legacyPath);
+  assert.equal(reopened.listProjects().length, 0);
+  assert.equal(reopened.listTodos().length, 0);
+  reopened.close();
+});

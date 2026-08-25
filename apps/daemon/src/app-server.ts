@@ -30,6 +30,7 @@ interface ListedThread {
 interface ReadThreadTurn {
   id: string;
   status: string;
+  error?: { message?: string } | null;
   items?: ReadThreadItem[];
 }
 
@@ -85,6 +86,14 @@ function collectAnswerLinks(answer: string, artifacts: TodoArtifact[]): void {
     if (!uri) continue;
     artifacts.push({ kind: "link", name: match[1]?.trim() || artifactName(uri), uri });
   }
+}
+
+function finalAnswer(turn: ReadThreadTurn): string {
+  const messages = (turn.items ?? []).filter(
+    (item): item is ReadThreadItem & { text: string } => item.type === "agentMessage" && typeof item.text === "string",
+  );
+  const finalMessages = messages.filter((item) => item.phase === "final_answer");
+  return (finalMessages.at(-1) ?? messages.at(-1))?.text.trim() ?? "";
 }
 
 export class CodexAppServer {
@@ -282,11 +291,7 @@ export class CodexAppServer {
     const turn = (result.thread.turns ?? []).find((candidate) => candidate.id === turnId);
     if (!turn) throw new Error("Completion turn not found");
 
-    const messages = (turn.items ?? []).filter(
-      (item): item is ReadThreadItem & { text: string } => item.type === "agentMessage" && typeof item.text === "string",
-    );
-    const finalMessages = messages.filter((item) => item.phase === "final_answer");
-    const answer = (finalMessages.at(-1) ?? messages.at(-1))?.text.trim() ?? "";
+    const answer = finalAnswer(turn);
     const artifacts: TodoArtifact[] = [];
     for (const item of turn.items ?? []) {
       if (item.type === "fileChange") {
@@ -307,6 +312,21 @@ export class CodexAppServer {
       artifacts: artifacts.filter((artifact, index) =>
         artifacts.findIndex((candidate) => candidate.uri === artifact.uri) === index,
       ),
+    };
+  }
+
+  async readFinishedTurn(threadId: string, turnId: string): Promise<TurnSnapshot | null> {
+    const result = await this.request<{ thread: ReadThread }>("thread/read", {
+      threadId,
+      includeTurns: true,
+    });
+    const turn = (result.thread.turns ?? []).find((candidate) => candidate.id === turnId);
+    if (!turn) throw new Error("Running turn not found");
+    if (turn.status !== "completed" && turn.status !== "failed" && turn.status !== "interrupted") return null;
+    return {
+      status: turn.status,
+      text: finalAnswer(turn),
+      error: turn.error?.message ?? null,
     };
   }
 

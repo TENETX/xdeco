@@ -39,3 +39,25 @@ test("readTurnResult selects the final answer and collects produced artifacts", 
     { kind: "link", name: "验收页", uri: "https://example.com/acceptance" },
   ]);
 });
+
+test("readFinishedTurn distinguishes active and completed turns", async () => {
+  const codex = new CodexAppServer();
+  let status = "inProgress";
+  codex.request = (async () => ({
+    thread: {
+      turns: [{
+        id: "turn_456",
+        status,
+        items: [{ type: "agentMessage", phase: "final_answer", text: "done" }],
+      }],
+    },
+  })) as CodexAppServer["request"];
+
+  assert.equal(await codex.readFinishedTurn("thread_123", "turn_456"), null);
+  status = "completed";
+  assert.deepEqual(await codex.readFinishedTurn("thread_123", "turn_456"), {
+    status: "completed",
+    text: "done",
+    error: null,
+  });
+});

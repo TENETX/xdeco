@@ -1,51 +1,79 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { WHOMI_HTML } from "./widget.js";
+import { WHOMI_HTML, WHOMI_URI } from "./widget.js";
 
 test("whomi widget script is valid JavaScript", () => {
   const script = WHOMI_HTML.match(/<script>([\s\S]*?)<\/script>/)?.[1];
   assert.ok(script);
   assert.doesNotThrow(() => new Function(script));
-  assert.match(WHOMI_HTML, /项目 Todo 队列/);
+  assert.equal(WHOMI_URI, "ui://whomi/dashboard-v7.html");
+  assert.match(WHOMI_HTML, /tailwindcss v4/);
+  assert.match(WHOMI_HTML, /--background:oklch/);
+  assert.match(WHOMI_HTML, /data-slot="dialog-content"/);
+  assert.match(WHOMI_HTML, /stroke-linecap="round"/);
+  assert.doesNotMatch(WHOMI_HTML, /stroke-width="1\.8"/);
 });
 
-test("widget exposes the simplified project queue", () => {
-  assert.match(WHOMI_HTML, /add_todo/);
-  assert.match(WHOMI_HTML, /start_project_queue/);
-  assert.match(WHOMI_HTML, /自动发送/);
-  assert.match(WHOMI_HTML, /待发送/);
-  assert.doesNotMatch(WHOMI_HTML, /worktree|Worktree|Git 分支/);
+test("widget uses a project-first two-level folder tree", () => {
+  assert.match(WHOMI_HTML, /<h2>项目<\/h2>/);
+  assert.match(WHOMI_HTML, /projectToggle/);
+  assert.match(WHOMI_HTML, /threadList/);
+  assert.match(WHOMI_HTML, /function associatedEntries\(\)/);
+  assert.match(WHOMI_HTML, /function groupEntries\(entries\)/);
+  assert.match(WHOMI_HTML, /无项目/);
+  assert.match(WHOMI_HTML, /codexProjects/);
 });
 
-test("widget lets users bind a destination task", () => {
-  assert.match(WHOMI_HTML, /update_project/);
-  assert.match(WHOMI_HTML, /targetThreadId/);
-  assert.match(WHOMI_HTML, /首次发送时新建任务/);
+test("widget adds tasks through a searchable project-grouped picker", () => {
+  assert.match(WHOMI_HTML, /id="newBinding"/);
+  assert.match(WHOMI_HTML, /function openPicker\(\)/);
+  assert.match(WHOMI_HTML, /id="pickerSearch"/);
+  assert.match(WHOMI_HTML, /搜索项目或 task/);
+  assert.match(WHOMI_HTML, /\[thread\.name,thread\.cwd,project\.name\]/);
+  assert.match(WHOMI_HTML, /关联 Codex task/);
+  assert.match(WHOMI_HTML, /state\.overview\.codexThreads\.filter/);
+  assert.match(WHOMI_HTML, /class="pickerGroup"/);
+  assert.match(WHOMI_HTML, /data-picker-group/);
+  assert.match(WHOMI_HTML, /pickerCollapsedGroups/);
+  assert.match(WHOMI_HTML, /aria-expanded/);
+  assert.match(WHOMI_HTML, /aria-hidden/);
+  assert.match(WHOMI_HTML, /inert/);
+  assert.doesNotMatch(WHOMI_HTML, /<small>/);
+  assert.match(WHOMI_HTML, /已关联/);
+  assert.match(WHOMI_HTML, /callTool\("create_project"/);
+  assert.match(WHOMI_HTML, /callTool\("update_project"/);
 });
 
-test("widget can move between inline, PiP and fullscreen presentation", () => {
-  assert.match(WHOMI_HTML, /requestDisplayMode/);
-  assert.match(WHOMI_HTML, /"pip"/);
-  assert.match(WHOMI_HTML, /"fullscreen"/);
-  assert.match(WHOMI_HTML, /"inline"/);
-  assert.match(WHOMI_HTML, /openai:set_globals/);
-  assert.match(WHOMI_HTML, /window\.openai\.displayMode/);
-  assert.match(WHOMI_HTML, /打开浮动窗口/);
-  assert.match(WHOMI_HTML, /打开全屏/);
-  assert.match(WHOMI_HTML, /收起/);
+test("widget keeps only the minimal association and execution flow", () => {
+  assert.match(WHOMI_HTML, /callTool\("add_todo",\{title:title,projectId:binding\.id,status:"ready"\}\)/);
+  assert.match(WHOMI_HTML, /callTool\("retry_todo"/);
+  assert.doesNotMatch(WHOMI_HTML, /requestDisplayMode/);
+  assert.doesNotMatch(WHOMI_HTML, /start_project_queue/);
+  assert.doesNotMatch(WHOMI_HTML, /自动发送|打开浮动窗口|打开全屏|收起到对话/);
+  assert.doesNotMatch(WHOMI_HTML, /statusSelect|projectPicker|saveDraftButton|newProjectButton/);
 });
 
-test("whomi shows the AI answer and artifacts without exposing routing metadata", () => {
-  assert.match(WHOMI_HTML, /class="receiptDialog" role="dialog"/);
-  assert.match(WHOMI_HTML, /callTool\("get_todo_result", \{ todoId: todoId \}\)/);
+test("widget shows the AI answer and artifacts without routing metadata", () => {
+  assert.match(WHOMI_HTML, /class="dialog" role="dialog"/);
+  assert.match(WHOMI_HTML, /callTool\("get_todo_result",\{todoId:todoId\}\)/);
   assert.match(WHOMI_HTML, />AI 回复</);
   assert.match(WHOMI_HTML, />产出物</);
   assert.match(WHOMI_HTML, /state\.receiptResult\.answer/);
   assert.match(WHOMI_HTML, /state\.receiptResult\.artifacts/);
-  assert.match(WHOMI_HTML, /state\.receiptTodoId\s*=\s*todoId/);
-  assert.doesNotMatch(WHOMI_HTML, /复制定位信息/);
-  assert.doesNotMatch(WHOMI_HTML, /<span>Codex task<\/span>/);
-  assert.doesNotMatch(WHOMI_HTML, /<span>Turn<\/span>/);
-  assert.doesNotMatch(WHOMI_HTML, /请打开 Todo/);
-  assert.doesNotMatch(WHOMI_HTML, /已请求打开完成记录/);
+  assert.doesNotMatch(WHOMI_HTML, /复制定位信息|<span>Codex task<\/span>|<span>Turn<\/span>/);
+});
+
+test("widget refreshes active Todos until Codex finishes", () => {
+  assert.match(WHOMI_HTML, /hasActiveTodo/);
+  assert.match(WHOMI_HTML, /syncActivePolling/);
+  assert.match(WHOMI_HTML, /todo\.status==="sending"\|\|todo\.status==="running"/);
+  assert.match(WHOMI_HTML, /setTimeout\(function\(\)\{pollTimer=null;if\(document\.hidden\|\|state\.modal\)return;void refresh\(true\)\},2500\)/);
+  assert.match(WHOMI_HTML, /visibilitychange/);
+});
+
+test("widget adapts without manual size controls", () => {
+  assert.match(WHOMI_HTML, /@media\s*\(max-width:680px\)/);
+  assert.match(WHOMI_HTML, /grid-template-columns:repeat\(1,minmax\(0,1fr\)\)/);
+  assert.match(WHOMI_HTML, /notifyIntrinsicHeight/);
+  assert.doesNotMatch(WHOMI_HTML, /displayMode|fullscreen|pipButton|inlineButton/);
 });
