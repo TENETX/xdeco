@@ -4,6 +4,15 @@ export const TODO_STATUSES = [
 
 export type TodoStatus = (typeof TODO_STATUSES)[number];
 
+export const TODO_MODES = ["default", "plan"] as const;
+
+export type TodoMode = (typeof TODO_MODES)[number];
+
+export const TODO_MODE_META: Record<TodoMode, { label: string; description: string }> = {
+  default: { label: "执行", description: "直接完成任务" },
+  plan: { label: "规划", description: "先梳理方案" },
+};
+
 export const STATUS_META: Record<TodoStatus, { label: string; description: string; tone: string }> = {
   draft: { label: "草稿", description: "先记下来，暂不发送", tone: "quiet" },
   ready: { label: "待发送", description: "进入项目发送队列", tone: "queued" },
@@ -46,6 +55,7 @@ export interface Todo {
   projectId: string | null;
   title: string;
   description: string;
+  mode: TodoMode;
   status: TodoStatus;
   sourceType: TodoSource;
   sourcePath: string | null;
@@ -68,6 +78,7 @@ export interface TodoArtifact {
 export interface TodoResult {
   title: string;
   answer: string;
+  answerHtml: string;
   artifacts: TodoArtifact[];
 }
 
@@ -109,6 +120,7 @@ export interface CreateProjectInput {
 export interface CreateTodoInput {
   title: string;
   description?: string;
+  mode?: TodoMode;
   status?: TodoStatus;
   projectId?: string | null;
   sourceType?: TodoSource;
@@ -125,6 +137,10 @@ export interface CaptureResult {
 
 export function isTodoStatus(value: unknown): value is TodoStatus {
   return typeof value === "string" && (TODO_STATUSES as readonly string[]).includes(value);
+}
+
+export function isTodoMode(value: unknown): value is TodoMode {
+  return typeof value === "string" && (TODO_MODES as readonly string[]).includes(value);
 }
 
 export function countByStatus(todos: Todo[]): Record<TodoStatus, number> {

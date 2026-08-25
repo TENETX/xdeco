@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { CreateProjectInput, CreateTodoInput } from "@xdeco/shared";
-import { isTodoStatus } from "@xdeco/shared";
+import { isTodoMode, isTodoStatus } from "@xdeco/shared";
 import { DAEMON_HOST, DAEMON_PORT, DATA_DIR } from "./config.js";
 import { XdecoService } from "./service.js";
 
@@ -61,6 +61,11 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   if (path === "/api/todos" && request.method === "POST") return send(response, 201, service.addTodo(await jsonBody(request) as CreateTodoInput));
   const todoMatch = path.match(/^\/api\/todos\/([^/]+)$/);
   if (todoMatch && request.method === "GET") return send(response, 200, service.getTodo(todoMatch[1]!));
+  if (todoMatch && request.method === "PATCH") {
+    const body = await jsonBody(request);
+    if (!isTodoMode(body.mode)) throw new Error("Invalid todo mode");
+    return send(response, 200, service.setMode(todoMatch[1]!, body.mode));
+  }
   const resultMatch = path.match(/^\/api\/todos\/([^/]+)\/result$/);
   if (resultMatch && request.method === "GET") return send(response, 200, await service.getTodoResult(resultMatch[1]!));
   const statusMatch = path.match(/^\/api\/todos\/([^/]+)\/status$/);
@@ -71,6 +76,13 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   }
   const retryMatch = path.match(/^\/api\/todos\/([^/]+)\/retry$/);
   if (retryMatch && request.method === "POST") return send(response, 200, service.retryTodo(retryMatch[1]!));
+  const queueTodoMatch = path.match(/^\/api\/todos\/([^/]+)\/queue$/);
+  if (queueTodoMatch && request.method === "PATCH") {
+    const body = await jsonBody(request);
+    if (typeof body.projectId !== "string" || !body.projectId) throw new Error("projectId is required");
+    if (body.beforeTodoId != null && typeof body.beforeTodoId !== "string") throw new Error("Invalid beforeTodoId");
+    return send(response, 200, service.queueTodo(queueTodoMatch[1]!, body.projectId, body.beforeTodoId));
+  }
 
   if (path === "/api/capture" && request.method === "POST") {
     const body = await jsonBody(request);

@@ -1,6 +1,6 @@
 <div align="center">
 
-# xdeco
+<img src="apps/web/public/brand/xdeco-lockup.png" alt="xdeco" width="420">
 
 **给 Codex 一个可靠、可见、可恢复的项目任务队列。**
 
@@ -35,12 +35,15 @@ xdeco 是运行在本地的 Codex 项目 Todo 队列。它连接 Codex 中已有
 - **从任意 task 收集工作**：通过自然语言、文字或截图创建结构化 Todo，不必离开当前对话。
 - **复用 Codex 项目与 task**：读取 Codex 已同步的本地项目，按项目浏览和搜索 task，不再维护第二份项目清单。
 - **按项目独立排队**：不同项目可以并行；同一项目一次只运行一个 Todo，避免上下文和执行顺序失控。
+- **每条 Todo 独立选模式**：直接执行或先进入 Codex 规划模式，不把执行方式锁死在项目上。
 - **自动跟踪执行结果**：Todo 会随着 Codex turn 自动进入运行、完成或失败状态，并保留最终回复与产出物。
 - **失败可恢复**：发送失败会暂停当前项目队列；重试后从失败项继续，不会静默跳过或重复发送。
 - **插件 UI 与 Web UI**：既可以在 Codex 内使用嵌入式界面，也可以打开独立的本地管理页面。
 - **Local-first**：项目、Todo、截图和执行记录默认存放在 `~/.codex/xdeco/`，xdeco 不要求账号，也不依赖远程数据库。
 
 ## Todo 如何流转？
+
+界面把内部状态收敛成三个位置：新 Todo 平铺在下方；拖入分段队列后即可插队，发光的车头表示当前正在执行；执行完成后从主列表收起到右上角的历史入口，在那里查看 AI 回复和产出物。
 
 ```text
 draft → ready → sending → running → completed
@@ -50,11 +53,11 @@ draft → ready → sending → running → completed
 
 | 状态 | 含义 |
 | --- | --- |
-| `draft` | 只记录，不发送给 Codex |
-| `ready` | 已进入所属项目的待执行队列 |
-| `sending` / `running` | 正在创建或等待 Codex turn |
-| `completed` | 已完成，可以查看 AI 回复和产出物 |
-| `failed` | 当前项失败，项目队列暂停，等待重试 |
+| `draft` | 存在于 Todo 池，不体现优先级 |
+| `ready` | 已拖入所属项目的可排序执行队列 |
+| `sending` / `running` | 位于队列车头，正在创建或等待 Codex turn |
+| `completed` | 收入完成历史，可以查看 AI 回复和产出物 |
+| `failed` | 返回 Todo 池并显示错误，等待再次排队 |
 | `archived` | 已归档，不再参与调度 |
 
 只有用户明确要求“发送”“启动”或“加入队列”时，Todo 才会进入 `ready`。通过截图或普通收集创建的内容默认只是草稿。
@@ -109,6 +112,7 @@ codex plugin add xdeco@personal
 - 从文字或截图提炼 Todo；
 - 创建草稿或加入项目队列；
 - 关联、浏览和搜索 Codex task；
+- 为每条 Todo 选择执行或规划模式；
 - 查看执行状态、AI 最终回复和产出物；
 - 重试失败项或归档不再需要的 Todo。
 

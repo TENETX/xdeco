@@ -35,6 +35,11 @@ export class XdecoDatabase {
     return Boolean(this.db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name));
   }
 
+  private hasColumn(table: string, column: string): boolean {
+    return (this.db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>)
+      .some((candidate) => candidate.name === column);
+  }
+
   private migrate(): void {
     if (!this.hasTable("projects") && this.hasTable("plans")) this.migrateLegacyPlans();
     this.createSchema();
@@ -58,6 +63,7 @@ export class XdecoDatabase {
         project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
         title TEXT NOT NULL,
         description TEXT NOT NULL DEFAULT '',
+        mode TEXT NOT NULL DEFAULT 'default' CHECK (mode IN ('default','plan')),
         status TEXT NOT NULL CHECK (status IN ('draft','ready','sending','running','completed','failed','archived')),
         source_type TEXT NOT NULL CHECK (source_type IN ('text','screenshot','mcp')),
         source_path TEXT,
@@ -93,6 +99,9 @@ export class XdecoDatabase {
         value TEXT NOT NULL
       );
     `);
+    if (!this.hasColumn("todos", "mode")) {
+      this.db.exec("ALTER TABLE todos ADD COLUMN mode TEXT NOT NULL DEFAULT 'default' CHECK (mode IN ('default','plan'))");
+    }
   }
 
   private migrateLegacyPlans(): void {
@@ -338,7 +347,7 @@ export class XdecoDatabase {
   }
 
   private todoSelect(): string {
-    return `SELECT id, project_id AS projectId, title, description, status,
+    return `SELECT id, project_id AS projectId, title, description, mode, status,
       source_type AS sourceType, source_path AS sourcePath, position,
       created_at AS createdAt, updated_at AS updatedAt, completed_at AS completedAt,
       completion_thread_id AS completionThreadId, completion_turn_id AS completionTurnId,
@@ -352,14 +361,20 @@ export class XdecoDatabase {
       .get(input.projectId ?? null) as { position: number };
     this.db.prepare(`
       INSERT INTO todos (
-        id, project_id, title, description, status, source_type, source_path,
+        id, project_id, title, description, mode, status, source_type, source_path,
         position, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      id, input.projectId ?? null, input.title, input.description ?? "", status,
+      id, input.projectId ?? null, input.title, input.description ?? "", input.mode ?? "default", status,
       input.sourceType ?? "text", input.sourcePath ?? null, next.position, timestamp, timestamp,
     );
     return this.getTodo(id)!;
+  }
+
+  updateTodoMode(id: string, mode: Todo["mode"]): Todo | null {
+    this.db.prepare("UPDATE todos SET mode = ?, updated_at = ? WHERE id = ?")
+      .run(mode, now(), id);
+    return this.getTodo(id);
   }
 
   updateTodoStatus(id: string, status: TodoStatus, projectId?: string | null, error?: string | null): Todo | null {
@@ -373,6 +388,48 @@ export class XdecoDatabase {
         .run(status, timestamp, completedAt, error ?? null, id);
     }
     return this.getTodo(id);
+  }
+
+  queueTodo(id: string, projectId: string, beforeTodoId?: string | null): Todo | null {
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const current = this.getTodo(id);
+      if (!current) throw new Error("Todo not found");
+      if (["sending", "running", "completed", "archived"].includes(current.status)) {
+        throw new Error("This Todo cannot be moved into the queue");
+      }
+
+      const queued = this.db.prepare(`
+        SELECT id FROM todos
+        WHERE project_id = ? AND status = 'ready' AND id != ?
+        ORDER BY position, created_at
+      `).all(projectId, id) as Array<{ id: string }>;
+      let insertAt = queued.length;
+      if (beforeTodoId) {
+        const index = queued.findIndex((todo) => todo.id === beforeTodoId);
+        if (index < 0) throw new Error("Queue insertion target not found");
+        insertAt = index;
+      }
+      queued.splice(insertAt, 0, { id });
+
+      const timestamp = now();
+      this.db.prepare(`
+        UPDATE todos SET project_id = ?, status = 'ready', updated_at = ?,
+          completed_at = NULL, last_error = NULL
+        WHERE id = ?
+      `).run(projectId, timestamp, id);
+      const active = this.db.prepare(`
+        SELECT COUNT(*) AS count FROM todos
+        WHERE project_id = ? AND status IN ('sending', 'running')
+      `).get(projectId) as { count: number };
+      const updatePosition = this.db.prepare("UPDATE todos SET position = ? WHERE id = ?");
+      queued.forEach((todo, index) => updatePosition.run(index + (active.count ? 1 : 0), todo.id));
+      this.db.exec("COMMIT");
+      return this.getTodo(id);
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
   }
 
   claimNextReady(projectId: string): Todo | null {

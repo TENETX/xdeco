@@ -41,8 +41,53 @@ test("migrates legacy Plan and Todo rows into projects and the new queue states"
   assert.equal(database.listProjects()[0]?.id, "project_2");
   assert.equal(database.listProjects()[0]?.targetThreadId, "thread_2");
   assert.equal(database.listTodos()[0]?.status, "ready");
+  assert.equal(database.listTodos()[0]?.mode, "default");
   assert.deepEqual(database.listTodos().map((todo) => todo.projectId), ["project_2", "project_2"]);
   assert.equal(database.latestRun("todo_1")?.projectId, "project_2");
+  database.close();
+});
+
+test("adds a default mode column to an existing xdeco database", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "xdeco-mode-migration-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const path = join(directory, "xdeco.sqlite");
+  const existing = new DatabaseSync(path);
+  existing.exec(`
+    CREATE TABLE todos (
+      id TEXT PRIMARY KEY, project_id TEXT, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL, source_type TEXT NOT NULL, source_path TEXT, position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL, completed_at TEXT, completion_thread_id TEXT,
+      completion_turn_id TEXT, completion_summary TEXT, last_error TEXT
+    );
+    INSERT INTO todos VALUES ('todo_old',NULL,'Existing Todo','', 'draft','text',NULL,0,
+      '2026-01-01','2026-01-01',NULL,NULL,NULL,NULL,NULL);
+  `);
+  existing.close();
+
+  const database = new XdecoDatabase(path, null);
+  assert.equal(database.getTodo("todo_old")?.mode, "default");
+  const project = database.createProject("project_mode", { name: "Modes", rootPath: "/workspace/modes" });
+  const todo = database.createTodo("todo_mode", { title: "Plan this", projectId: project.id, mode: "plan" });
+  assert.equal(todo.mode, "plan");
+  assert.equal(database.updateTodoMode(todo.id, "default")?.mode, "default");
+  database.close();
+});
+
+test("queues a Todo at an exact insertion point", () => {
+  const database = new XdecoDatabase(":memory:");
+  const project = database.createProject("project_queue", { name: "Queue", rootPath: "/workspace/queue" });
+  const first = database.createTodo("todo_first", { title: "First", projectId: project.id, status: "ready" });
+  const second = database.createTodo("todo_second", { title: "Second", projectId: project.id, status: "ready" });
+  const waiting = database.createTodo("todo_waiting", { title: "Waiting", projectId: project.id, status: "draft" });
+
+  database.queueTodo(waiting.id, project.id, second.id);
+
+  assert.deepEqual(
+    database.listTodos(project.id).filter((todo) => todo.status === "ready").map((todo) => todo.id),
+    [first.id, waiting.id, second.id],
+  );
+  const completed = database.createTodo("todo_completed", { title: "Completed", projectId: project.id, status: "completed" });
+  assert.throws(() => database.queueTodo(completed.id, project.id), /cannot be moved into the queue/);
   database.close();
 });
 

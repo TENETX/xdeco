@@ -6,12 +6,14 @@ test("xdeco widget script is valid JavaScript", () => {
   const script = XDECO_HTML.match(/<script>([\s\S]*?)<\/script>/)?.[1];
   assert.ok(script);
   assert.doesNotThrow(() => new Function(script));
-  assert.equal(XDECO_URI, "ui://xdeco/dashboard-v7.html");
+  assert.equal(XDECO_URI, "ui://xdeco/dashboard-v9.html");
   assert.match(XDECO_HTML, /tailwindcss v4/);
   assert.match(XDECO_HTML, /--background:oklch/);
   assert.match(XDECO_HTML, /data-slot="dialog-content"/);
   assert.match(XDECO_HTML, /stroke-linecap="round"/);
   assert.doesNotMatch(XDECO_HTML, /stroke-width="1\.8"/);
+  assert.match(XDECO_HTML, /class="brandMark"><img src="data:image\/png;base64,/);
+  assert.doesNotMatch(XDECO_HTML, /ListTodo/);
 });
 
 test("widget uses a project-first two-level folder tree", () => {
@@ -45,7 +47,9 @@ test("widget adds tasks through a searchable project-grouped picker", () => {
 });
 
 test("widget keeps only the minimal association and execution flow", () => {
-  assert.match(XDECO_HTML, /callTool\("add_todo",\{title:title,projectId:binding\.id,status:"ready"\}\)/);
+  assert.match(XDECO_HTML, /id="todoMode"/);
+  assert.match(XDECO_HTML, /callTool\("add_todo",\{title:title,projectId:binding\.id,mode:mode,status:"ready"\}\)/);
+  assert.match(XDECO_HTML, /modeLabels/);
   assert.match(XDECO_HTML, /callTool\("retry_todo"/);
   assert.doesNotMatch(XDECO_HTML, /requestDisplayMode/);
   assert.doesNotMatch(XDECO_HTML, /start_project_queue/);
@@ -59,6 +63,7 @@ test("widget shows the AI answer and artifacts without routing metadata", () => 
   assert.match(XDECO_HTML, />AI 回复</);
   assert.match(XDECO_HTML, />产出物</);
   assert.match(XDECO_HTML, /state\.receiptResult\.answer/);
+  assert.match(XDECO_HTML, /state\.receiptResult\.answerHtml/);
   assert.match(XDECO_HTML, /state\.receiptResult\.artifacts/);
   assert.doesNotMatch(XDECO_HTML, /复制定位信息|<span>Codex task<\/span>|<span>Turn<\/span>/);
 });

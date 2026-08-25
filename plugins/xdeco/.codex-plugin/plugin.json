@@ -21,7 +21,8 @@
       "\u628a\u8fd9\u4e2a Todo \u52a0\u5165\u9879\u76ee\u7684\u53d1\u9001\u961f\u5217\u3002",
       "\u6253\u5f00 xdeco\uff0c\u67e5\u770b\u6bcf\u4e2a\u9879\u76ee\u7684 Todo \u72b6\u6001\u3002"
     ],
-    "brandColor": "#141414"
+    "brandColor": "#141414",
+    "logo": "./assets/logo.png"
   },
   "mcpServers": "./.mcp.json"
 }

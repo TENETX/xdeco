@@ -36,7 +36,11 @@ export default function CompletionPage({ params }: { params: Promise<{ id: strin
             <>
               <div className="completionIcon"><CheckCircle2 size={26} /></div>
               <h1>{result.title}</h1>
-              <p className="resultAnswer">{result.answer || "这次执行没有留下可展示的 AI 回复。"}</p>
+              {result.answerHtml ? (
+                <div className="markdownBody" dangerouslySetInnerHTML={{ __html: result.answerHtml }} />
+              ) : (
+                <p className="resultAnswer">{result.answer || "这次执行没有留下可展示的 AI 回复。"}</p>
+              )}
               <h2>产出物</h2>
               {result.artifacts.length ? (
                 <ul className="artifactList">

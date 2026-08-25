@@ -8,12 +8,14 @@ import type {
   Todo,
   TodoResult,
   TodoRun,
+  TodoMode,
   TodoStatus,
 } from "@xdeco/shared";
 import { countByStatus } from "@xdeco/shared";
 import { CAPTURE_MODEL, EXECUTION_MODEL } from "./config.js";
 import { CodexAppServer } from "./app-server.js";
 import { XdecoDatabase } from "./database.js";
+import { renderMarkdown } from "./markdown.js";
 import { CodexProjectCatalog, type ProjectCatalog } from "./projects.js";
 import { CodexThreadCatalog, type ThreadCatalog } from "./threads.js";
 
@@ -137,14 +139,21 @@ export class XdecoService {
     }
     try {
       const result = await this.codex.readTurnResult(todo.completionThreadId, todo.completionTurnId);
+      const answer = result.answer || todo.completionSummary || "";
       return {
         title: todo.title,
-        answer: result.answer || todo.completionSummary || "",
+        answer,
+        answerHtml: renderMarkdown(answer),
         artifacts: result.artifacts,
       };
     } catch (error) {
       if (!todo.completionSummary) throw error;
-      return { title: todo.title, answer: todo.completionSummary, artifacts: [] };
+      return {
+        title: todo.title,
+        answer: todo.completionSummary,
+        answerHtml: renderMarkdown(todo.completionSummary),
+        artifacts: [],
+      };
     }
   }
 
@@ -187,6 +196,24 @@ export class XdecoService {
     const todo = this.database.updateTodoStatus(id, status, projectId);
     if (!todo) throw new Error("Todo not found");
     if (status === "ready" && todo.projectId && this.getProject(todo.projectId).autoDispatch) this.kick(todo.projectId);
+    return todo;
+  }
+
+  setMode(id: string, mode: TodoMode): Todo {
+    const current = this.getTodo(id);
+    if (current.status === "sending" || current.status === "running") {
+      throw new Error("Cannot change the mode of a running Todo");
+    }
+    const todo = this.database.updateTodoMode(id, mode);
+    if (!todo) throw new Error("Todo not found");
+    return todo;
+  }
+
+  queueTodo(id: string, projectId: string, beforeTodoId?: string | null): Todo {
+    const project = this.getProject(projectId);
+    const todo = this.database.queueTodo(id, project.id, beforeTodoId);
+    if (!todo) throw new Error("Todo not found");
+    if (project.autoDispatch) this.kick(project.id);
     return todo;
   }
 
@@ -320,8 +347,9 @@ export class XdecoService {
       threadId = await this.codex.startThread({
         model: EXECUTION_MODEL,
         cwd: project.rootPath,
-        approvalPolicy: "never",
-        sandbox: "workspace-write",
+        approvalPolicy: "on-request",
+        approvalsReviewer: "auto_review",
+        permissions: ":workspace",
         serviceName: "xdeco_dispatch",
       });
       await this.codex.request("thread/name/set", { threadId, name: project.name });
@@ -332,8 +360,17 @@ export class XdecoService {
     const turnId = await this.codex.startTurn({
       threadId,
       cwd: project.rootPath,
-      model: EXECUTION_MODEL,
-      effort: "medium",
+      approvalPolicy: "on-request",
+      approvalsReviewer: "auto_review",
+      permissions: ":workspace",
+      collaborationMode: {
+        mode: todo.mode,
+        settings: {
+          model: EXECUTION_MODEL,
+          reasoning_effort: "medium",
+          developer_instructions: null,
+        },
+      },
       input: [{
         type: "text",
         text: [

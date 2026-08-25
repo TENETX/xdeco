@@ -97,14 +97,18 @@
 @layer components {
   .shell { @apply min-h-svh bg-background; }
   .topbar { @apply flex min-h-14 items-center gap-2.5 border-b px-4 py-2; }
-  .brandMark { @apply grid size-8 shrink-0 place-items-center rounded-lg bg-secondary text-secondary-foreground; }
-  .brandMark svg { @apply size-4; }
+  .brandMark { @apply grid size-8 shrink-0 place-items-center; }
+  .brandMark img { @apply size-8 object-contain; }
   .brandCopy { @apply min-w-0 flex-1; }
   .brandCopy strong { @apply block truncate text-[13px] font-semibold tracking-[-0.015em]; }
   .brandCopy span { @apply block text-[10px] text-muted-foreground; }
   .connection { @apply inline-flex items-center gap-1.5 whitespace-nowrap text-[10px] text-muted-foreground; }
   .connection i { @apply size-1.5 rounded-full bg-destructive; }
   .connection.connected i { @apply bg-success; }
+
+  @media (prefers-color-scheme: dark) {
+    .brandMark img { filter: invert(1); }
+  }
 
   .layout { @apply grid min-h-[480px] grid-cols-[minmax(220px,260px)_minmax(0,1fr)]; }
   .sidebar { @apply min-w-0 border-r bg-muted/45 p-2.5; }
@@ -141,8 +145,9 @@
   .statusSummary i { @apply size-1.5 rounded-full bg-muted-foreground/60; }
   .statusSummary.active i { @apply bg-running; }
 
-  .composer { @apply my-5 grid grid-cols-[minmax(0,1fr)_auto] gap-2; }
+  .composer { @apply my-5 grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2; }
   .input { @apply h-10 rounded-md border border-input bg-background px-3 text-[12px] shadow-xs transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 focus:border-ring; }
+  .modeSelect { @apply h-10 rounded-md border border-input bg-background px-3 text-[11px] font-medium shadow-xs transition-[border-color,box-shadow] duration-150 focus:border-ring; }
   .button { @apply inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md border border-input bg-background px-3 text-[11px] font-medium shadow-xs transition-[background-color,border-color,transform,opacity] duration-150 hover:bg-accent hover:text-accent-foreground active:scale-[.97] disabled:pointer-events-none disabled:opacity-45; }
   .button.primary { @apply border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground; }
   .button svg { @apply size-3.5; }
@@ -162,6 +167,7 @@
   .todoCopy strong { @apply block truncate text-[12px] font-medium; }
   .todoCopy span { @apply mt-0.5 block text-[10px] text-muted-foreground; }
   .todoActions { @apply flex items-center gap-1.5; }
+  .modeText { @apply rounded-md bg-muted px-2 py-1 text-[9px] font-medium text-foreground; }
   .statusText { @apply whitespace-nowrap text-[10px] text-muted-foreground; }
   .miniButton { @apply min-h-8 rounded-md px-2.5 text-[10px]; }
 
@@ -198,7 +204,26 @@
 
   .resultSection { @apply mt-4; }
   .resultSection h3 { @apply mb-2 text-[11px] font-medium; }
-  .answer { @apply whitespace-pre-wrap break-words rounded-lg bg-muted p-3 text-pretty text-[11px] leading-relaxed; }
+  .answer { @apply break-words rounded-lg bg-muted p-3 text-pretty text-[11px] leading-relaxed; }
+  .answer > :first-child { @apply mt-0; }
+  .answer > :last-child { @apply mb-0; }
+  .answer p, .answer ul, .answer ol, .answer blockquote, .answer pre, .answer table { @apply mb-2.5; }
+  .answer h1, .answer h2, .answer h3, .answer h4, .answer h5, .answer h6 { @apply mt-4 mb-1.5 font-semibold tracking-[-0.015em]; }
+  .answer h1 { @apply text-base; }
+  .answer h2 { @apply text-sm; }
+  .answer h3, .answer h4, .answer h5, .answer h6 { @apply text-xs; }
+  .answer ul { @apply list-disc pl-5; }
+  .answer ol { @apply list-decimal pl-5; }
+  .answer li + li { @apply mt-1; }
+  .answer blockquote { @apply border-l-2 border-border pl-2.5 text-muted-foreground; }
+  .answer code { @apply rounded bg-background px-1 py-0.5 text-[10px]; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .answer pre { @apply overflow-x-auto rounded-lg bg-foreground p-3 text-background; }
+  .answer pre code { @apply bg-transparent p-0 text-[10px] text-inherit; white-space: pre; }
+  .answer a { @apply underline decoration-muted-foreground underline-offset-2 hover:decoration-foreground; }
+  .answer hr { @apply my-3 border-0 border-t border-border; }
+  .answer table { @apply block max-w-full overflow-x-auto border-collapse; }
+  .answer th, .answer td { @apply border border-border px-2 py-1 text-left align-top; }
+  .answer th { @apply bg-background font-medium; }
   .artifactList { @apply m-0 grid list-none gap-1.5 p-0; }
   .artifact { @apply grid min-h-12 grid-cols-[28px_minmax(0,1fr)] items-center gap-2 rounded-lg bg-muted p-2; }
   .artifact > svg { @apply m-auto size-4 text-muted-foreground; }
