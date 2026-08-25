@@ -4,10 +4,10 @@ import { DatabaseSync } from "node:sqlite";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { WhomiDatabase } from "./database.js";
+import { XdecoDatabase } from "./database.js";
 
 test("migrates legacy Plan and Todo rows into projects and the new queue states", async (context) => {
-  const directory = await mkdtemp(join(tmpdir(), "whomi-migration-"));
+  const directory = await mkdtemp(join(tmpdir(), "xdeco-migration-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
   const path = join(directory, "legacy.sqlite");
   const legacy = new DatabaseSync(path);
@@ -36,7 +36,7 @@ test("migrates legacy Plan and Todo rows into projects and the new queue states"
   `);
 
   legacy.close();
-  const database = new WhomiDatabase(path);
+  const database = new XdecoDatabase(path);
   assert.equal(database.listProjects().length, 1);
   assert.equal(database.listProjects()[0]?.id, "project_2");
   assert.equal(database.listProjects()[0]?.targetThreadId, "thread_2");
@@ -47,10 +47,10 @@ test("migrates legacy Plan and Todo rows into projects and the new queue states"
 });
 
 test("imports legacy rows without modifying the legacy database", async (context) => {
-  const directory = await mkdtemp(join(tmpdir(), "whomi-import-"));
+  const directory = await mkdtemp(join(tmpdir(), "xdeco-import-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
   const legacyPath = join(directory, "legacy.sqlite");
-  const targetPath = join(directory, "whomi.sqlite");
+  const targetPath = join(directory, "xdeco.sqlite");
   const legacy = new DatabaseSync(legacyPath);
   legacy.exec(`
     CREATE TABLE plans (
@@ -69,7 +69,7 @@ test("imports legacy rows without modifying the legacy database", async (context
   `);
   legacy.close();
 
-  const database = new WhomiDatabase(targetPath, legacyPath);
+  const database = new XdecoDatabase(targetPath, legacyPath);
   assert.equal(database.listProjects()[0]?.name, "Website");
   assert.equal(database.listTodos()[0]?.status, "ready");
   database.close();
@@ -80,11 +80,11 @@ test("imports legacy rows without modifying the legacy database", async (context
   untouched.close();
 });
 
-test("does not re-import legacy rows after the whomi database is intentionally cleared", async (context) => {
-  const directory = await mkdtemp(join(tmpdir(), "whomi-clear-"));
+test("does not re-import legacy rows after the xdeco database is intentionally cleared", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "xdeco-clear-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
   const legacyPath = join(directory, "legacy.sqlite");
-  const targetPath = join(directory, "whomi.sqlite");
+  const targetPath = join(directory, "xdeco.sqlite");
   const legacy = new DatabaseSync(legacyPath);
   legacy.exec(`
     CREATE TABLE plans (
@@ -102,12 +102,12 @@ test("does not re-import legacy rows after the whomi database is intentionally c
   `);
   legacy.close();
 
-  const database = new WhomiDatabase(targetPath, legacyPath);
+  const database = new XdecoDatabase(targetPath, legacyPath);
   assert.equal(database.listProjects().length, 1);
   database.db.exec("DELETE FROM todo_runs; DELETE FROM todos; DELETE FROM projects");
   database.close();
 
-  const reopened = new WhomiDatabase(targetPath, legacyPath);
+  const reopened = new XdecoDatabase(targetPath, legacyPath);
   assert.equal(reopened.listProjects().length, 0);
   assert.equal(reopened.listTodos().length, 0);
   reopened.close();

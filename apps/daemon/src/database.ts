@@ -8,7 +8,7 @@ import type {
   Todo,
   TodoRun,
   TodoStatus,
-} from "@whomi/shared";
+} from "@xdeco/shared";
 import { DATABASE_PATH, LEGACY_DATABASE_PATH } from "./config.js";
 
 type SqlValue = string | number | null;
@@ -17,7 +17,7 @@ function now(): string {
   return new Date().toISOString();
 }
 
-export class WhomiDatabase {
+export class XdecoDatabase {
   readonly db: DatabaseSync;
 
   constructor(
@@ -435,4 +435,4 @@ export class WhomiDatabase {
   }
 }
 
-export { WhomiDatabase as PlanDatabase };
+export { XdecoDatabase as PlanDatabase };

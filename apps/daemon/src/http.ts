@@ -2,16 +2,22 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { mkdir, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { randomUUID } from "node:crypto";
-import type { CreateProjectInput, CreateTodoInput } from "@whomi/shared";
-import { isTodoStatus } from "@whomi/shared";
+import type { CreateProjectInput, CreateTodoInput } from "@xdeco/shared";
+import { isTodoStatus } from "@xdeco/shared";
 import { DAEMON_HOST, DAEMON_PORT, DATA_DIR } from "./config.js";
-import { WhomiService } from "./service.js";
+import { XdecoService } from "./service.js";
 
-const service = new WhomiService();
+const service = new XdecoService();
 
 function send(response: ServerResponse, status: number, body: unknown): void {
-  response.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
-  response.end(JSON.stringify(body));
+  const payload = JSON.stringify(body);
+  response.writeHead(status, {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": Buffer.byteLength(payload),
+    "cache-control": "no-store",
+    "x-content-type-options": "nosniff",
+  });
+  response.end(payload);
 }
 
 async function jsonBody(request: IncomingMessage): Promise<Record<string, any>> {
@@ -41,7 +47,7 @@ async function persistImage(image: unknown): Promise<string | null> {
 async function route(request: IncomingMessage, response: ServerResponse): Promise<void> {
   const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
   const path = url.pathname;
-  if (request.method === "GET" && path === "/health") return send(response, 200, { ok: true, service: "whomi", version: "0.2.0" });
+  if (request.method === "GET" && path === "/health") return send(response, 200, { ok: true, service: "xdeco", version: "0.2.0" });
   if (request.method === "GET" && path === "/api/overview") return send(response, 200, await service.overview(url.searchParams.get("projectId") ?? undefined));
 
   if (path === "/api/projects" && request.method === "GET") return send(response, 200, service.listProjects());
@@ -55,6 +61,8 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   if (path === "/api/todos" && request.method === "POST") return send(response, 201, service.addTodo(await jsonBody(request) as CreateTodoInput));
   const todoMatch = path.match(/^\/api\/todos\/([^/]+)$/);
   if (todoMatch && request.method === "GET") return send(response, 200, service.getTodo(todoMatch[1]!));
+  const resultMatch = path.match(/^\/api\/todos\/([^/]+)\/result$/);
+  if (resultMatch && request.method === "GET") return send(response, 200, await service.getTodoResult(resultMatch[1]!));
   const statusMatch = path.match(/^\/api\/todos\/([^/]+)\/status$/);
   if (statusMatch && request.method === "PATCH") {
     const body = await jsonBody(request);
@@ -76,6 +84,6 @@ const server = createServer((request, response) => void route(request, response)
   send(response, message.toLowerCase().includes("not found") ? 404 : 400, { error: message });
 }));
 
-server.listen(DAEMON_PORT, DAEMON_HOST, () => process.stdout.write(`whomi API listening on http://${DAEMON_HOST}:${DAEMON_PORT}\n`));
+server.listen(DAEMON_PORT, DAEMON_HOST, () => process.stdout.write(`xdeco API listening on http://${DAEMON_HOST}:${DAEMON_PORT}\n`));
 function shutdown(): void { server.close(() => process.exit(0)); }
 process.on("SIGINT", shutdown); process.on("SIGTERM", shutdown);

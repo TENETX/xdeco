@@ -9,11 +9,11 @@ import type {
   TodoResult,
   TodoRun,
   TodoStatus,
-} from "@whomi/shared";
-import { countByStatus } from "@whomi/shared";
+} from "@xdeco/shared";
+import { countByStatus } from "@xdeco/shared";
 import { CAPTURE_MODEL, EXECUTION_MODEL } from "./config.js";
 import { CodexAppServer } from "./app-server.js";
-import { WhomiDatabase } from "./database.js";
+import { XdecoDatabase } from "./database.js";
 import { CodexProjectCatalog, type ProjectCatalog } from "./projects.js";
 import { CodexThreadCatalog, type ThreadCatalog } from "./threads.js";
 
@@ -37,11 +37,19 @@ function requireText(value: unknown, name: string): string {
   return value.trim();
 }
 
-export class WhomiService {
+interface CodexCatalogSnapshot {
+  projects: Awaited<ReturnType<ProjectCatalog["list"]>>;
+  threads: Awaited<ReturnType<ThreadCatalog["list"]>>;
+  available: boolean;
+}
+
+export class XdecoService {
   private readonly dispatchers = new Map<string, Promise<void>>();
+  private catalogCache: { value: CodexCatalogSnapshot; expiresAt: number } | null = null;
+  private catalogRequest: Promise<CodexCatalogSnapshot> | null = null;
 
   constructor(
-    readonly database = new WhomiDatabase(),
+    readonly database = new XdecoDatabase(),
     readonly codex = new CodexAppServer(),
     readonly projectCatalog: ProjectCatalog = new CodexProjectCatalog(),
     readonly threadCatalog: ThreadCatalog = new CodexThreadCatalog(),
@@ -51,26 +59,40 @@ export class WhomiService {
 
   async overview(projectId?: string): Promise<Overview> {
     const todos = this.database.listTodos(projectId, true);
-    const [codexProjects, codexAvailable, codexThreads] = await Promise.all([
-      this.projectCatalog.list(),
-      Promise.race([
-        this.codex.available(),
-        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 1_500)),
-      ]),
-      this.threadCatalog.list(500),
-    ]);
+    const catalog = await this.codexCatalog();
     return {
       projects: this.database.listProjects(),
-      codexProjects,
-      codexThreads,
+      codexProjects: catalog.projects,
+      codexThreads: catalog.threads,
       todos,
       counts: countByStatus(todos),
       controller: {
         threadId: this.database.getSetting("controller_thread_id"),
         model: CAPTURE_MODEL,
-        codexAvailable,
+        codexAvailable: catalog.available,
       },
     };
+  }
+
+  private async codexCatalog(): Promise<CodexCatalogSnapshot> {
+    const now = Date.now();
+    if (this.catalogCache && this.catalogCache.expiresAt > now) return this.catalogCache.value;
+    if (this.catalogRequest) return this.catalogRequest;
+    this.catalogRequest = Promise.all([
+      this.projectCatalog.list().catch(() => []),
+      this.threadCatalog.list(500).catch(() => []),
+      Promise.race([
+        this.codex.available(),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 1_500)),
+      ]).catch(() => false),
+    ]).then(([projects, threads, available]) => {
+      const value = { projects, threads, available };
+      this.catalogCache = { value, expiresAt: Date.now() + (available ? 5_000 : 2_000) };
+      return value;
+    }).finally(() => {
+      this.catalogRequest = null;
+    });
+    return this.catalogRequest;
   }
 
   listProjects(): Project[] { return this.database.listProjects(); }
@@ -174,9 +196,9 @@ export class WhomiService {
     try {
       let threadId = this.database.getSetting("controller_thread_id");
       if (!threadId) {
-        threadId = await this.codex.startThread({ model: CAPTURE_MODEL, approvalPolicy: "never", sandbox: "read-only", serviceName: "whomi_capture" });
+        threadId = await this.codex.startThread({ model: CAPTURE_MODEL, approvalPolicy: "never", sandbox: "read-only", serviceName: "xdeco_capture" });
         this.database.setSetting("controller_thread_id", threadId);
-        await this.codex.request("thread/name/set", { threadId, name: "whomi Inbox" });
+        await this.codex.request("thread/name/set", { threadId, name: "xdeco Inbox" });
       } else {
         await this.codex.resumeThread(threadId);
       }
@@ -244,7 +266,7 @@ export class WhomiService {
     if (!todo) return;
     const run = this.database.latestRun(todo.id);
     if (!run) {
-      this.database.updateTodoStatus(todo.id, "failed", undefined, "whomi 重启后无法找到这次 Codex 执行记录，请重试");
+      this.database.updateTodoStatus(todo.id, "failed", undefined, "xdeco 重启后无法找到这次 Codex 执行记录，请重试");
       return;
     }
     try {
@@ -300,7 +322,7 @@ export class WhomiService {
         cwd: project.rootPath,
         approvalPolicy: "never",
         sandbox: "workspace-write",
-        serviceName: "whomi_dispatch",
+        serviceName: "xdeco_dispatch",
       });
       await this.codex.request("thread/name/set", { threadId, name: project.name });
       project = this.updateProject(project.id, { targetThreadId: threadId });
@@ -315,7 +337,7 @@ export class WhomiService {
       input: [{
         type: "text",
         text: [
-          `执行 whomi 项目「${project.name}」中的 Todo：${todo.title}`,
+          `执行 xdeco 项目「${project.name}」中的 Todo：${todo.title}`,
           todo.description ? `\n背景与验收条件：\n${todo.description}` : "",
           "\n请直接完成工作并做必要验证；真正需要用户选择时再询问。",
         ].join(""),
@@ -333,6 +355,6 @@ export class WhomiService {
   }
 }
 
-export { WhomiService as PlanService };
+export { XdecoService as PlanService };
 
 type JsonInput = { type: "text"; text: string } | { type: "localImage"; path: string };

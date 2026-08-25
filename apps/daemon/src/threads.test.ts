@@ -7,7 +7,7 @@ import test from "node:test";
 import { CodexThreadCatalog } from "./threads.js";
 
 test("lists visible Codex tasks by recency with sidebar titles", async (context) => {
-  const directory = await mkdtemp(join(tmpdir(), "whomi-threads-"));
+  const directory = await mkdtemp(join(tmpdir(), "xdeco-threads-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
   const databasePath = join(directory, "state.sqlite");
   const sessionIndexPath = join(directory, "session_index.jsonl");

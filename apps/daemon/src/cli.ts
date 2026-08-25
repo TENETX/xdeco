@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { isTodoStatus, TODO_STATUSES } from "@whomi/shared";
+import { isTodoStatus, TODO_STATUSES } from "@xdeco/shared";
 
-const baseUrl = process.env.WHOMI_URL ?? "http://127.0.0.1:4317";
+const baseUrl = process.env.XDECO_URL ?? "http://127.0.0.1:4317";
 const cliArgs = process.argv.slice(2); if (cliArgs[0] === "--") cliArgs.shift();
 const [command, ...args] = cliArgs;
 
@@ -12,7 +12,7 @@ async function request(path: string, init?: RequestInit): Promise<any> {
 function print(value: unknown): void { process.stdout.write(`${JSON.stringify(value, null, 2)}\n`); }
 function usage(): never {
   process.stderr.write([
-    "whomi commands:",
+    "xdeco commands:",
     "  projects",
     "  project-add <name> <rootPath> [threadId]",
     "  todos [projectId]",

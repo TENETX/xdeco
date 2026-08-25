@@ -6,16 +6,16 @@
 
 ## 1. 架构概览
 
-whomi 是一个本地优先的 pnpm monorepo。HTTP 页面和 Codex 插件是两套入口，但最终都复用 `WhomiService`、同一个 SQLite 数据库和同一套 Codex App Server 适配层。
+xdeco 是一个本地优先的 pnpm monorepo。HTTP 页面和 Codex 插件是两套入口，但最终都复用 `XdecoService`、同一个 SQLite 数据库和同一套 Codex App Server 适配层。
 
 ```text
 Codex 对话 ── MCP tools / 嵌入式 Widget ─┐
-                                         ├── WhomiService ── SQLite
+                                         ├── XdecoService ── SQLite
 浏览器 ── Next.js /api 代理 ── HTTP API ─┘       │
 CLI ─────────────────────────── HTTP API          └── codex app-server
 ```
 
-默认只在本机回环地址开放 HTTP API，不包含登录或鉴权能力。若修改 `WHOMI_HOST` 对外监听，需要在外围自行增加访问控制。
+默认只在本机回环地址开放 HTTP API，不包含登录或鉴权能力。若修改 `XDECO_HOST` 对外监听，需要在外围自行增加访问控制。
 
 ## 2. 模块边界
 
@@ -24,13 +24,13 @@ CLI ─────────────────────────�
 | `apps/daemon` | 配置、SQLite、业务服务、HTTP/MCP 接口、Codex 调度 | `src/http.ts`、`src/mcp.ts`、`src/service.ts` |
 | `apps/web` | 独立 Web 管理页及 API 反向代理 | `src/app/page.tsx`、`src/app/api/[...path]/route.ts` |
 | `packages/shared` | Project、Todo、Run、Overview 类型与状态元数据 | `src/index.ts` |
-| `plugins/whomi` | Codex 插件 manifest、管理 skill、MCP 配置与打包产物 | `.codex-plugin/plugin.json`、`.mcp.json` |
+| `plugins/xdeco` | Codex 插件 manifest、管理 skill、MCP 配置与打包产物 | `.codex-plugin/plugin.json`、`.mcp.json` |
 
-`WhomiService` 是业务边界：入口层不直接操作数据库或 Codex。`WhomiDatabase` 管理持久化和原子领取，`CodexAppServer` 封装 `codex app-server` 的 JSON-RPC 生命周期。
+`XdecoService` 是业务边界：入口层不直接操作数据库或 Codex。`XdecoDatabase` 管理持久化和原子领取，`CodexAppServer` 封装 `codex app-server` 的 JSON-RPC 生命周期。
 
 ## 3. 核心数据
 
-SQLite 默认位于 `~/.codex/whomi/whomi.sqlite`，启用 WAL 和外键。主要表如下：
+SQLite 默认位于 `~/.codex/xdeco/xdeco.sqlite`，启用 WAL 和外键。主要表如下：
 
 | 表 | 用途 |
 | --- | --- |
@@ -55,15 +55,15 @@ Todo 使用 `position, created_at` 确定项目内顺序。Project 删除时 Tod
 
 同一 Node.js 进程还通过 `dispatchers` Map 避免同一 Project 重复启动循环；SQLite 事务用于防止多个插件会话或进程重复领取同一 Todo。不同 Project 可以并行。
 
-执行 turn 默认使用 `WHOMI_EXECUTION_MODEL`，工作区权限为 `workspace-write`，批准策略为 `never`，最长等待 24 小时。
+执行 turn 默认使用 `XDECO_EXECUTION_MODEL`，工作区权限为 `workspace-write`，批准策略为 `never`，最长等待 24 小时。
 
 ## 5. 内容捕获链路
 
 `capture_todos` 和 `POST /api/capture` 接受文本或截图：
 
 1. 截图校验为 PNG/JPEG/WebP 且不超过 10 MB，保存到数据目录。
-2. 服务复用一个名为 `whomi Inbox` 的捕获 task；不存在时创建并把 ID 存入 `settings`。
-3. 使用 `WHOMI_CAPTURE_MODEL` 和结构化 schema，把内容拆成 1–8 条 Todo。
+2. 服务复用一个名为 `xdeco Inbox` 的捕获 task；不存在时创建并把 ID 存入 `settings`。
+3. 使用 `XDECO_CAPTURE_MODEL` 和结构化 schema，把内容拆成 1–8 条 Todo。
 4. 所有捕获结果都以 `draft` 保存，不自动发送。
 5. 模型不可用或解析失败时，降级为按原文创建一条草稿，并返回 warning。
 
@@ -84,7 +84,7 @@ Todo 使用 `position, created_at` 确定项目内顺序。Project 删除时 Tod
 - v0.2 不会自动接管遗留的 `sending/running` Todo，以避免重复发送；需要人工确认后调整状态。
 - HTTP API 将“not found”错误映射为 404，其余业务或输入错误映射为 400。
 - `CodexAppServer` 在需要时惰性启动 `codex app-server`，并从事件流跟踪 turn 完成状态。
-- Web 和插件 MCP 分别创建自己的 `WhomiService` 进程，但共享数据库；若二者同时使用，队列领取仍由 SQLite 事务保护。
+- Web 和插件 MCP 分别创建自己的 `XdecoService` 进程，但共享数据库；若二者同时使用，队列领取仍由 SQLite 事务保护。
 
 ## 8. 当前范围外
 

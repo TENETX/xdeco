@@ -49543,17 +49543,17 @@ function countByStatus(todos) {
 // apps/daemon/src/config.ts
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-var DAEMON_HOST = process.env.WHOMI_HOST ?? "127.0.0.1";
-var DAEMON_PORT = Number(process.env.WHOMI_PORT ?? 4317);
+var DAEMON_HOST = process.env.XDECO_HOST ?? "127.0.0.1";
+var DAEMON_PORT = Number(process.env.XDECO_PORT ?? 4317);
 var CODEX_HOME = process.env.CODEX_HOME ? resolve(process.env.CODEX_HOME) : join(homedir(), ".codex");
 var CODEX_GLOBAL_STATE_PATH = join(CODEX_HOME, ".codex-global-state.json");
 var CODEX_STATE_DATABASE_PATH = join(CODEX_HOME, "state_5.sqlite");
 var CODEX_SESSION_INDEX_PATH = join(CODEX_HOME, "session_index.jsonl");
-var DATA_DIR = process.env.WHOMI_DATA_DIR ? resolve(process.env.WHOMI_DATA_DIR) : join(CODEX_HOME, "whomi");
+var DATA_DIR = process.env.XDECO_DATA_DIR ? resolve(process.env.XDECO_DATA_DIR) : join(CODEX_HOME, "xdeco");
 var LEGACY_DATABASE_PATH = join(CODEX_HOME, "plan-orchestrator", "plan-orchestrator.sqlite");
-var DATABASE_PATH = process.env.WHOMI_DATABASE ? resolve(process.env.WHOMI_DATABASE) : join(DATA_DIR, "whomi.sqlite");
-var CAPTURE_MODEL = process.env.WHOMI_CAPTURE_MODEL ?? "gpt-5.6-luna";
-var EXECUTION_MODEL = process.env.WHOMI_EXECUTION_MODEL ?? "gpt-5.6-terra";
+var DATABASE_PATH = process.env.XDECO_DATABASE ? resolve(process.env.XDECO_DATABASE) : join(DATA_DIR, "xdeco.sqlite");
+var CAPTURE_MODEL = process.env.XDECO_CAPTURE_MODEL ?? "gpt-5.6-luna";
+var EXECUTION_MODEL = process.env.XDECO_EXECUTION_MODEL ?? "gpt-5.6-terra";
 
 // apps/daemon/src/service.ts
 import { randomUUID } from "node:crypto";
@@ -49647,14 +49647,14 @@ var CodexAppServer = class {
       try {
         this.handle(JSON.parse(line));
       } catch (error51) {
-        process.stderr.write(`[whomi] invalid app-server message: ${String(error51)}
+        process.stderr.write(`[xdeco] invalid app-server message: ${String(error51)}
 `);
       }
     });
     await this.request("initialize", {
       clientInfo: {
-        name: "whomi",
-        title: "whomi",
+        name: "xdeco",
+        title: "xdeco",
         version: "0.1.0"
       },
       capabilities: { experimentalApi: true }
@@ -49831,7 +49831,7 @@ import { DatabaseSync } from "node:sqlite";
 function now() {
   return (/* @__PURE__ */ new Date()).toISOString();
 }
-var WhomiDatabase = class {
+var XdecoDatabase = class {
   db;
   constructor(path = DATABASE_PATH, legacyPath = path === DATABASE_PATH ? LEGACY_DATABASE_PATH : null) {
     if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
@@ -50381,8 +50381,8 @@ function requireText(value, name) {
   if (typeof value !== "string" || !value.trim()) throw new Error(`${name} is required`);
   return value.trim();
 }
-var WhomiService = class {
-  constructor(database = new WhomiDatabase(), codex = new CodexAppServer(), projectCatalog = new CodexProjectCatalog(), threadCatalog = new CodexThreadCatalog()) {
+var XdecoService = class {
+  constructor(database = new XdecoDatabase(), codex = new CodexAppServer(), projectCatalog = new CodexProjectCatalog(), threadCatalog = new CodexThreadCatalog()) {
     this.database = database;
     this.codex = codex;
     this.projectCatalog = projectCatalog;
@@ -50394,28 +50394,43 @@ var WhomiService = class {
   projectCatalog;
   threadCatalog;
   dispatchers = /* @__PURE__ */ new Map();
+  catalogCache = null;
+  catalogRequest = null;
   async overview(projectId) {
     const todos = this.database.listTodos(projectId, true);
-    const [codexProjects, codexAvailable, codexThreads] = await Promise.all([
-      this.projectCatalog.list(),
-      Promise.race([
-        this.codex.available(),
-        new Promise((resolve3) => setTimeout(() => resolve3(false), 1500))
-      ]),
-      this.threadCatalog.list(500)
-    ]);
+    const catalog = await this.codexCatalog();
     return {
       projects: this.database.listProjects(),
-      codexProjects,
-      codexThreads,
+      codexProjects: catalog.projects,
+      codexThreads: catalog.threads,
       todos,
       counts: countByStatus(todos),
       controller: {
         threadId: this.database.getSetting("controller_thread_id"),
         model: CAPTURE_MODEL,
-        codexAvailable
+        codexAvailable: catalog.available
       }
     };
+  }
+  async codexCatalog() {
+    const now2 = Date.now();
+    if (this.catalogCache && this.catalogCache.expiresAt > now2) return this.catalogCache.value;
+    if (this.catalogRequest) return this.catalogRequest;
+    this.catalogRequest = Promise.all([
+      this.projectCatalog.list().catch(() => []),
+      this.threadCatalog.list(500).catch(() => []),
+      Promise.race([
+        this.codex.available(),
+        new Promise((resolve3) => setTimeout(() => resolve3(false), 1500))
+      ]).catch(() => false)
+    ]).then(([projects, threads, available]) => {
+      const value = { projects, threads, available };
+      this.catalogCache = { value, expiresAt: Date.now() + (available ? 5e3 : 2e3) };
+      return value;
+    }).finally(() => {
+      this.catalogRequest = null;
+    });
+    return this.catalogRequest;
   }
   listProjects() {
     return this.database.listProjects();
@@ -50511,9 +50526,9 @@ var WhomiService = class {
     try {
       let threadId = this.database.getSetting("controller_thread_id");
       if (!threadId) {
-        threadId = await this.codex.startThread({ model: CAPTURE_MODEL, approvalPolicy: "never", sandbox: "read-only", serviceName: "whomi_capture" });
+        threadId = await this.codex.startThread({ model: CAPTURE_MODEL, approvalPolicy: "never", sandbox: "read-only", serviceName: "xdeco_capture" });
         this.database.setSetting("controller_thread_id", threadId);
-        await this.codex.request("thread/name/set", { threadId, name: "whomi Inbox" });
+        await this.codex.request("thread/name/set", { threadId, name: "xdeco Inbox" });
       } else {
         await this.codex.resumeThread(threadId);
       }
@@ -50578,7 +50593,7 @@ ${text.trim()}` }];
     if (!todo) return;
     const run = this.database.latestRun(todo.id);
     if (!run) {
-      this.database.updateTodoStatus(todo.id, "failed", void 0, "whomi \u91CD\u542F\u540E\u65E0\u6CD5\u627E\u5230\u8FD9\u6B21 Codex \u6267\u884C\u8BB0\u5F55\uFF0C\u8BF7\u91CD\u8BD5");
+      this.database.updateTodoStatus(todo.id, "failed", void 0, "xdeco \u91CD\u542F\u540E\u65E0\u6CD5\u627E\u5230\u8FD9\u6B21 Codex \u6267\u884C\u8BB0\u5F55\uFF0C\u8BF7\u91CD\u8BD5");
       return;
     }
     try {
@@ -50632,7 +50647,7 @@ ${text.trim()}` }];
         cwd: project.rootPath,
         approvalPolicy: "never",
         sandbox: "workspace-write",
-        serviceName: "whomi_dispatch"
+        serviceName: "xdeco_dispatch"
       });
       await this.codex.request("thread/name/set", { threadId, name: project.name });
       project = this.updateProject(project.id, { targetThreadId: threadId });
@@ -50647,7 +50662,7 @@ ${text.trim()}` }];
       input: [{
         type: "text",
         text: [
-          `\u6267\u884C whomi \u9879\u76EE\u300C${project.name}\u300D\u4E2D\u7684 Todo\uFF1A${todo.title}`,
+          `\u6267\u884C xdeco \u9879\u76EE\u300C${project.name}\u300D\u4E2D\u7684 Todo\uFF1A${todo.title}`,
           todo.description ? `
 \u80CC\u666F\u4E0E\u9A8C\u6536\u6761\u4EF6\uFF1A
 ${todo.description}` : "",
@@ -50703,18 +50718,18 @@ var LUCIDE_ICONS = {
   todo: lucideIcon(import_lucide.ListTodo),
   empty: lucideIcon(import_lucide.Inbox)
 };
-var WHOMI_URI = "ui://whomi/dashboard-v7.html";
-var WHOMI_HTML = String.raw`<!doctype html>
+var XDECO_URI = "ui://xdeco/dashboard-v7.html";
+var XDECO_HTML = String.raw`<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>whomi</title>
+  <title>xdeco</title>
   <style>${WIDGET_STYLES}</style>
 </head>
 <body>
   <section class="shell">
-    <header class="topbar"><div class="brandMark">${LUCIDE_ICONS.todo}</div><div class="brandCopy"><strong>whomi</strong><span>Codex Todo</span></div><div class="connection" id="connection"><i></i><span>连接中</span></div></header>
+    <header class="topbar"><div class="brandMark">${LUCIDE_ICONS.todo}</div><div class="brandCopy"><strong>xdeco</strong><span>Codex Todo</span></div><div class="connection" id="connection"><i></i><span>连接中</span></div></header>
     <div class="layout"><aside class="sidebar"><header class="sidebarHeader"><h2>项目</h2><button class="newButton" data-slot="button" id="newBinding" type="button">${LUCIDE_ICONS.plus}新增</button></header><div class="tree" id="tree"><div class="sideEmpty">正在读取关联…</div></div></aside><main class="workspace" id="workspace"><div class="empty"><div class="spinner"></div><span>正在读取 Todo…</span></div></main></div>
   </section>
   <div id="modalLayer"></div><div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -50770,8 +50785,8 @@ var WHOMI_HTML = String.raw`<!doctype html>
 </html>`;
 
 // apps/daemon/src/mcp.ts
-var service = new WhomiService();
-var server = new McpServer({ name: "whomi", version: "0.2.0" });
+var service = new XdecoService();
+var server = new McpServer({ name: "xdeco", version: "0.2.0" });
 var WIDGET_CALLABLE_META = { ui: { visibility: ["app"] }, "openai/widgetAccessible": true };
 function result(value) {
   return {
@@ -50799,11 +50814,11 @@ async function saveWidgetImage(file2) {
   await writeFile(path, bytes);
   return path;
 }
-server.registerResource("whomi", WHOMI_URI, {}, async () => ({
+server.registerResource("xdeco", XDECO_URI, {}, async () => ({
   contents: [{
-    uri: WHOMI_URI,
+    uri: XDECO_URI,
     mimeType: "text/html;profile=mcp-app",
-    text: WHOMI_HTML,
+    text: XDECO_HTML,
     _meta: {
       ui: { prefersBorder: true },
       "openai/widgetDescription": "A compact Codex-style Todo workspace. Group associated tasks by project, add a task from a searchable picker, and send Todos sequentially.",
@@ -50812,30 +50827,30 @@ server.registerResource("whomi", WHOMI_URI, {}, async () => ({
   }]
 }));
 server.registerTool("get_overview", {
-  title: "Get whomi overview",
+  title: "Get xdeco overview",
   description: "Return projects, Todos, queue states, Codex projects and destination tasks.",
   inputSchema: {},
   outputSchema: { result: external_exports.any() },
   annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   _meta: WIDGET_CALLABLE_META
 }, async () => result(await service.overview()));
-server.registerTool("open_whomi", {
-  title: "Open whomi",
-  description: "Open the interactive whomi project and Todo queue.",
+server.registerTool("open_xdeco", {
+  title: "Open xdeco",
+  description: "Open the interactive xdeco project and Todo queue.",
   inputSchema: {},
   outputSchema: { result: external_exports.any() },
   annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   _meta: {
-    ui: { resourceUri: WHOMI_URI },
-    "openai/outputTemplate": WHOMI_URI,
+    ui: { resourceUri: XDECO_URI },
+    "openai/outputTemplate": XDECO_URI,
     "openai/widgetAccessible": true,
-    "openai/toolInvocation/invoking": "\u6B63\u5728\u6253\u5F00 whomi\u2026",
-    "openai/toolInvocation/invoked": "whomi \u5DF2\u6253\u5F00"
+    "openai/toolInvocation/invoking": "\u6B63\u5728\u6253\u5F00 xdeco\u2026",
+    "openai/toolInvocation/invoked": "xdeco \u5DF2\u6253\u5F00"
   }
 }, async () => result(await service.overview()));
 server.registerTool("add_todo", {
   title: "Add Todo",
-  description: "Add one Todo to whomi from any Codex conversation. Use projectId or an exact projectName. Default status is draft; use ready only when the user explicitly wants it queued for sequential sending.",
+  description: "Add one Todo to xdeco from any Codex conversation. Use projectId or an exact projectName. Default status is draft; use ready only when the user explicitly wants it queued for sequential sending.",
   inputSchema: {
     title: external_exports.string().min(1),
     description: external_exports.string().optional(),
@@ -50860,7 +50875,7 @@ server.registerTool("capture_todos", {
 });
 server.registerTool("create_project", {
   title: "Create Project",
-  description: "Create a whomi project with a local root and optional destination Codex task.",
+  description: "Create a xdeco project with a local root and optional destination Codex task.",
   inputSchema: {
     name: external_exports.string().min(1),
     rootPath: external_exports.string().min(1),
@@ -50873,7 +50888,7 @@ server.registerTool("create_project", {
 }, async (input) => result(service.createProject(input)));
 server.registerTool("list_projects", {
   title: "List Projects",
-  description: "List whomi projects and their destination Codex tasks.",
+  description: "List xdeco projects and their destination Codex tasks.",
   inputSchema: {},
   outputSchema: { result: external_exports.any() },
   annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }

@@ -2,62 +2,60 @@
 
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
-import { ArrowLeft, CheckCircle2, Copy, ExternalLink, GitBranch, MessageSquareCode } from "lucide-react";
-import type { Todo } from "@whomi/shared";
+import { ArrowLeft, CheckCircle2, File, Link2 } from "lucide-react";
+import type { TodoResult } from "@xdeco/shared";
 
 export default function CompletionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [todo, setTodo] = useState<Todo | null>(null);
+  const [result, setResult] = useState<TodoResult | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch(`/api/todos/${id}`, { cache: "no-store" })
+    const controller = new AbortController();
+    fetch(`/api/todos/${id}/result`, { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.error ?? "加载失败");
-        setTodo(body);
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body.error ?? "结果加载失败");
+        setResult(body as TodoResult);
       })
-      .catch((reason) => setError(String(reason)));
+      .catch((reason) => {
+        if (reason instanceof DOMException && reason.name === "AbortError") return;
+        setError(reason instanceof Error ? reason.message : String(reason));
+      });
+    return () => controller.abort();
   }, [id]);
-
-  const copy = (value: string | null) => {
-    if (value) void navigator.clipboard.writeText(value);
-  };
 
   return (
     <main className="completionPage">
       <section className="completionCard">
-        <Link className="backLink" href="/">
-          <ArrowLeft size={16} /> 返回控制台
-        </Link>
-        {error ? <div className="errorBanner">{error}</div> : null}
-        {!todo && !error ? <div className="completionLoading">正在读取完成记录…</div> : null}
-        {todo ? (
-          <>
-            <div className="completionIcon"><CheckCircle2 size={26} /></div>
-            <p className="eyebrow">COMPLETION RECEIPT</p>
-            <h1>{todo.title}</h1>
-            <p className="completionSummary">{todo.completionSummary || "这个 Todo 已完成，下面是对应的 Codex 执行位置。"}</p>
-            <div className="receiptGrid">
-              <div className="receiptRow">
-                <span><MessageSquareCode size={16} /> Codex task</span>
-                <code>{todo.completionThreadId ?? "未记录"}</code>
-                <button aria-label="复制 task ID" onClick={() => copy(todo.completionThreadId)}><Copy size={15} /></button>
-              </div>
-              <div className="receiptRow">
-                <span><GitBranch size={16} /> Turn</span>
-                <code>{todo.completionTurnId ?? "未记录"}</code>
-                <button aria-label="复制 turn ID" onClick={() => copy(todo.completionTurnId)}><Copy size={15} /></button>
-              </div>
-            </div>
-            <div className="routeNote">
-              <ExternalLink size={16} />
-              <p>这是稳定的插件内精确链接。它保留 task + turn；接入 Codex 原生 turn deep link 后只需替换这一层路由。</p>
-            </div>
-          </>
-        ) : null}
+        <Link className="backLink" href="/"><ArrowLeft size={16} />返回 Todo</Link>
+        <div className="completionSurface">
+          {error ? <div className="errorBanner" role="alert">{error}</div> : null}
+          {!result && !error ? <div className="completionLoading"><span>正在读取执行结果…</span></div> : null}
+          {result ? (
+            <>
+              <div className="completionIcon"><CheckCircle2 size={26} /></div>
+              <h1>{result.title}</h1>
+              <p className="resultAnswer">{result.answer || "这次执行没有留下可展示的 AI 回复。"}</p>
+              <h2>产出物</h2>
+              {result.artifacts.length ? (
+                <ul className="artifactList">
+                  {result.artifacts.map((artifact) => (
+                    <li key={artifact.uri}>
+                      {artifact.kind === "file" ? <File size={17} /> : <Link2 size={17} />}
+                      {artifact.kind === "link" ? (
+                        <a href={artifact.uri} target="_blank" rel="noreferrer"><strong>{artifact.name}</strong><code>{artifact.uri}</code></a>
+                      ) : (
+                        <span><strong>{artifact.name}</strong><code>{artifact.uri}</code></span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : <div className="iosEmpty"><p>这次没有生成文件或链接。</p></div>}
+            </>
+          ) : null}
+        </div>
       </section>
     </main>
   );
 }
-

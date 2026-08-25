@@ -1,16 +1,38 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { WhomiDatabase } from "./database.js";
-import { WhomiService } from "./service.js";
+import { XdecoDatabase } from "./database.js";
+import { XdecoService } from "./service.js";
 
 const unavailableCodex = { available: async () => false, listThreads: async () => [] } as any;
 const emptyCatalog = { list: async () => [] };
 
 function tick(): Promise<void> { return new Promise((resolve) => setImmediate(resolve)); }
 
+test("reuses the Codex catalog during rapid overview polling", async () => {
+  const database = new XdecoDatabase(":memory:");
+  let availabilityChecks = 0;
+  let projectReads = 0;
+  let threadReads = 0;
+  const codex = { available: async () => { availabilityChecks += 1; return true; } } as any;
+  const projects = { list: async () => { projectReads += 1; return []; } };
+  const threads = { list: async () => { threadReads += 1; return []; } };
+  try {
+    const service = new XdecoService(database, codex, projects, threads);
+    await Promise.all([service.overview(), service.overview(), service.overview()]);
+    await service.overview();
+    assert.deepEqual({ availabilityChecks, projectReads, threadReads }, {
+      availabilityChecks: 1,
+      projectReads: 1,
+      threadReads: 1,
+    });
+  } finally {
+    database.close();
+  }
+});
+
 test("adds a Todo from another conversation by exact project name", () => {
-  const database = new WhomiDatabase(":memory:");
-  const service = new WhomiService(database, unavailableCodex, emptyCatalog);
+  const database = new XdecoDatabase(":memory:");
+  const service = new XdecoService(database, unavailableCodex, emptyCatalog);
   const project = service.createProject({ name: "Website", rootPath: "/workspace/site", autoDispatch: false });
   const added = service.addTodo({ title: "Fix navigation", projectName: "website", status: "ready", sourceType: "mcp" });
   assert.equal(added.todo.projectId, project.id);
@@ -21,15 +43,15 @@ test("adds a Todo from another conversation by exact project name", () => {
 });
 
 test("ready Todos require a Project and drafts do not dispatch", () => {
-  const database = new WhomiDatabase(":memory:");
-  const service = new WhomiService(database, unavailableCodex, emptyCatalog);
+  const database = new XdecoDatabase(":memory:");
+  const service = new XdecoService(database, unavailableCodex, emptyCatalog);
   assert.throws(() => service.addTodo({ title: "orphan", status: "ready" }), /Project/);
   assert.equal(service.addTodo({ title: "remember this" }).todo.status, "draft");
   database.close();
 });
 
 test("returns the completed AI answer and artifacts without routing metadata", async () => {
-  const database = new WhomiDatabase(":memory:");
+  const database = new XdecoDatabase(":memory:");
   const codex = {
     available: async () => true,
     listThreads: async () => [],
@@ -43,7 +65,7 @@ test("returns the completed AI answer and artifacts without routing metadata", a
     },
   } as any;
   try {
-    const service = new WhomiService(database, codex, emptyCatalog);
+    const service = new XdecoService(database, codex, emptyCatalog);
     const project = service.createProject({ name: "Result", rootPath: "/workspace/result", autoDispatch: false });
     const todo = service.addTodo({ title: "Show result", projectId: project.id }).todo;
     database.completeTodo(todo.id, "thread_result", "turn_result", "fallback");
@@ -62,7 +84,7 @@ test("returns the completed AI answer and artifacts without routing metadata", a
 });
 
 test("dispatches ready Todos one at a time in position order", async () => {
-  const database = new WhomiDatabase(":memory:");
+  const database = new XdecoDatabase(":memory:");
   const sent: string[] = [];
   const resolvers = new Map<string, (value: any) => void>();
   let turn = 0;
@@ -79,7 +101,7 @@ test("dispatches ready Todos one at a time in position order", async () => {
     },
     waitForTurn: async (turnId: string) => new Promise((resolve) => resolvers.set(turnId, resolve)),
   } as any;
-  const service = new WhomiService(database, codex, emptyCatalog);
+  const service = new XdecoService(database, codex, emptyCatalog);
   const project = service.createProject({ name: "Website", rootPath: "/workspace/site", targetThreadId: "thread_1", autoDispatch: false });
   const first = service.addTodo({ title: "First", projectId: project.id, status: "ready" }).todo;
   const second = service.addTodo({ title: "Second", projectId: project.id, status: "ready" }).todo;
@@ -105,7 +127,7 @@ test("dispatches ready Todos one at a time in position order", async () => {
 });
 
 test("a failed Todo pauses the remaining project queue", async () => {
-  const database = new WhomiDatabase(":memory:");
+  const database = new XdecoDatabase(":memory:");
   let calls = 0;
   const codex = {
     available: async () => true,
@@ -114,7 +136,7 @@ test("a failed Todo pauses the remaining project queue", async () => {
     startTurn: async () => `turn_${++calls}`,
     waitForTurn: async () => ({ status: "failed", text: "", error: "boom" }),
   } as any;
-  const service = new WhomiService(database, codex, emptyCatalog);
+  const service = new XdecoService(database, codex, emptyCatalog);
   const project = service.createProject({ name: "Website", rootPath: "/workspace/site", targetThreadId: "thread_1", autoDispatch: false });
   const failed = service.addTodo({ title: "First", projectId: project.id, status: "ready" }).todo;
   const waiting = service.addTodo({ title: "Second", projectId: project.id, status: "ready" }).todo;
@@ -126,8 +148,8 @@ test("a failed Todo pauses the remaining project queue", async () => {
   database.close();
 });
 
-test("restores a running Codex turn after whomi restarts", async () => {
-  const database = new WhomiDatabase(":memory:");
+test("restores a running Codex turn after xdeco restarts", async () => {
+  const database = new XdecoDatabase(":memory:");
   const project = database.createProject("project_restore", {
     name: "Restore",
     rootPath: "/workspace/restore",
@@ -157,7 +179,7 @@ test("restores a running Codex turn after whomi restarts", async () => {
     waitForTurn: async () => new Promise((resolve) => { finish = resolve; }),
   } as any;
 
-  const service = new WhomiService(database, codex, emptyCatalog);
+  const service = new XdecoService(database, codex, emptyCatalog);
   await tick(); await tick();
   assert.equal(resumed, true);
   assert.equal(service.getTodo(todo.id).status, "running");
@@ -174,7 +196,7 @@ test("restores a running Codex turn after whomi restarts", async () => {
 });
 
 test("marks an unrecoverable sending Todo as failed after restart", async () => {
-  const database = new WhomiDatabase(":memory:");
+  const database = new XdecoDatabase(":memory:");
   const project = database.createProject("project_orphan", {
     name: "Orphan",
     rootPath: "/workspace/orphan",
@@ -186,7 +208,7 @@ test("marks an unrecoverable sending Todo as failed after restart", async () => 
     status: "sending",
   });
 
-  const service = new WhomiService(database, {} as any, emptyCatalog);
+  const service = new XdecoService(database, {} as any, emptyCatalog);
   await tick();
   assert.equal(service.getTodo(todo.id).status, "failed");
   assert.match(service.getTodo(todo.id).lastError ?? "", /无法找到.*执行记录/);

@@ -6,7 +6,7 @@ import test from "node:test";
 import { CodexProjectCatalog } from "./projects.js";
 
 test("discovers Codex local projects in recency order", async (context) => {
-  const directory = await mkdtemp(join(tmpdir(), "whomi-projects-"));
+  const directory = await mkdtemp(join(tmpdir(), "xdeco-projects-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
   const recentRoot = join(directory, "recent");
   const olderRoot = join(directory, "older");

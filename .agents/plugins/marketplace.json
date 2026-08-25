@@ -5,10 +5,10 @@
   },
   "plugins": [
     {
-      "name": "whomi",
+      "name": "xdeco",
       "source": {
         "source": "local",
-        "path": "./plugins/whomi"
+        "path": "./plugins/xdeco"
       },
       "policy": {
         "installation": "AVAILABLE",

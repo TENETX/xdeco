@@ -1,11 +1,11 @@
-# whomi 产品与技术设计
+# xdeco 产品与技术设计
 
 > 状态：v0.2
 > 更新时间：2026-08-21
 
 ## 1. 产品边界
 
-whomi 是 Codex 的本地项目 Todo 队列，不负责 Git 分支、worktree、进程终端或复杂执行环境管理。
+xdeco 是 Codex 的本地项目 Todo 队列，不负责 Git 分支、worktree、进程终端或复杂执行环境管理。
 
 核心对象只有三个：
 
@@ -109,7 +109,7 @@ Next.js 页面保留为可选独立入口，与插件 UI 共用同一服务和�
 ## 6. MCP tools
 
 ```text
-open_whomi
+open_xdeco
 get_overview
 
 add_todo

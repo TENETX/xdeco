@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
-import type { CodexThread } from "@whomi/shared";
+import type { CodexThread } from "@xdeco/shared";
 import { CODEX_SESSION_INDEX_PATH, CODEX_STATE_DATABASE_PATH } from "./config.js";
 
 interface StoredThread {

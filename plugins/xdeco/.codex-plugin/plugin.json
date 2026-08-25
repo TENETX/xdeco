@@ -1,27 +1,27 @@
 {
-  "name": "whomi",
-  "version": "0.2.0+codex.20260821035638",
+  "name": "xdeco",
+  "version": "0.2.0+codex.20260825075636",
   "description": "Collect Todos by project and send ready work to Codex one item at a time.",
   "author": {
-    "name": "whomi contributors"
+    "name": "xdeco contributors"
   },
   "skills": "./skills/",
   "interface": {
-    "displayName": "whomi",
+    "displayName": "xdeco",
     "shortDescription": "Manage project Todo queues for Codex.",
     "longDescription": "Capture Todos from any conversation, organize them by project, and send ready work to each project's Codex task sequentially.",
-    "developerName": "whomi contributors",
+    "developerName": "xdeco contributors",
     "category": "Productivity",
     "capabilities": [
       "Interactive",
       "Write"
     ],
     "defaultPrompt": [
-      "\u628a\u8fd9\u4ef6\u4e8b\u4f5c\u4e3a\u8349\u7a3f Todo \u52a0\u5230 whomi\u3002",
+      "\u628a\u8fd9\u4ef6\u4e8b\u4f5c\u4e3a\u8349\u7a3f Todo \u52a0\u5230 xdeco\u3002",
       "\u628a\u8fd9\u4e2a Todo \u52a0\u5165\u9879\u76ee\u7684\u53d1\u9001\u961f\u5217\u3002",
-      "\u6253\u5f00 whomi\uff0c\u67e5\u770b\u6bcf\u4e2a\u9879\u76ee\u7684 Todo \u72b6\u6001\u3002"
+      "\u6253\u5f00 xdeco\uff0c\u67e5\u770b\u6bcf\u4e2a\u9879\u76ee\u7684 Todo \u72b6\u6001\u3002"
     ],
-    "brandColor": "#587143"
+    "brandColor": "#141414"
   },
   "mcpServers": "./.mcp.json"
 }

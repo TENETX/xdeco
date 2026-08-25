@@ -93,16 +93,16 @@ content-type: application/json
 
 ## 2. CLI
 
-CLI 通过 HTTP API 工作，因此 daemon 必须已运行。可用 `WHOMI_URL` 指向其他地址。
+CLI 通过 HTTP API 工作，因此 daemon 必须已运行。可用 `XDECO_URL` 指向其他地址。
 
 ```bash
-pnpm --filter @whomi/daemon cli -- projects
-pnpm --filter @whomi/daemon cli -- project-add "Website" "D:/project/site" [threadId]
-pnpm --filter @whomi/daemon cli -- todos [projectId]
-pnpm --filter @whomi/daemon cli -- add "修复导航" [projectId] [draft|ready]
-pnpm --filter @whomi/daemon cli -- status <todoId> <status> [projectId]
-pnpm --filter @whomi/daemon cli -- dispatch <projectId>
-pnpm --filter @whomi/daemon cli -- retry <todoId>
+pnpm --filter @xdeco/daemon cli -- projects
+pnpm --filter @xdeco/daemon cli -- project-add "Website" "D:/project/site" [threadId]
+pnpm --filter @xdeco/daemon cli -- todos [projectId]
+pnpm --filter @xdeco/daemon cli -- add "修复导航" [projectId] [draft|ready]
+pnpm --filter @xdeco/daemon cli -- status <todoId> <status> [projectId]
+pnpm --filter @xdeco/daemon cli -- dispatch <projectId>
+pnpm --filter @xdeco/daemon cli -- retry <todoId>
 ```
 
 CLI 输出格式为 JSON，失败信息写到 stderr 并以非零状态退出。
@@ -113,7 +113,7 @@ Codex 插件通过 stdio MCP server 公开以下工具：
 
 | Tool | 主要输入 | 行为 |
 | --- | --- | --- |
-| `open_whomi` | 无 | 打开嵌入式 Widget，并返回 overview |
+| `open_xdeco` | 无 | 打开嵌入式 Widget，并返回 overview |
 | `get_overview` | 无 | 读取完整 overview |
 | `add_todo` | `title`、可选 `projectId/projectName/status` | 创建单条 Todo；默认草稿 |
 | `capture_todos` | 可选 `text/image/projectId` | 提炼 1–8 条草稿 Todo |

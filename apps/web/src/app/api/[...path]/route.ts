@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const daemonUrl = process.env.WHOMI_URL ?? "http://127.0.0.1:4317";
+const daemonUrl = process.env.XDECO_URL ?? "http://127.0.0.1:4317";
 
 type Context = { params: Promise<{ path: string[] }> };
 

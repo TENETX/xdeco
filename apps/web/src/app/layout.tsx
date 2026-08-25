@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "whomi",
+  title: "xdeco",
   description: "Project Todo queues that send work to Codex one item at a time.",
 };
 

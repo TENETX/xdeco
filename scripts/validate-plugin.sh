@@ -4,9 +4,9 @@ set -euo pipefail
 skill_root="${CODEX_PLUGIN_CREATOR_ROOT:-${HOME}/.codex/skills/.system/plugin-creator}"
 validator="${skill_root}/scripts/validate_plugin.py"
 bundled_python="${HOME}/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3"
-python_bin="${WHOMI_PYTHON:-python3}"
+python_bin="${XDECO_PYTHON:-python3}"
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-validator_venv="${WHOMI_VALIDATOR_VENV:-${repo_dir}/.data/plugin-validator-venv}"
+validator_venv="${XDECO_VALIDATOR_VENV:-${repo_dir}/.data/plugin-validator-venv}"
 
 if ! "${python_bin}" -c 'import yaml' >/dev/null 2>&1; then
   if [[ -x "${bundled_python}" ]] && "${bundled_python}" -c 'import yaml' >/dev/null 2>&1; then
@@ -21,4 +21,4 @@ if ! "${python_bin}" -c 'import yaml' >/dev/null 2>&1; then
 fi
 
 cd "${repo_dir}"
-exec "${python_bin}" "${validator}" plugins/whomi
+exec "${python_bin}" "${validator}" plugins/xdeco

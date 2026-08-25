@@ -42,19 +42,19 @@ const LUCIDE_ICONS = {
   empty: lucideIcon(Inbox),
 };
 
-export const WHOMI_URI = "ui://whomi/dashboard-v7.html";
+export const XDECO_URI = "ui://xdeco/dashboard-v7.html";
 
-export const WHOMI_HTML = String.raw`<!doctype html>
+export const XDECO_HTML = String.raw`<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>whomi</title>
+  <title>xdeco</title>
   <style>${WIDGET_STYLES}</style>
 </head>
 <body>
   <section class="shell">
-    <header class="topbar"><div class="brandMark">${LUCIDE_ICONS.todo}</div><div class="brandCopy"><strong>whomi</strong><span>Codex Todo</span></div><div class="connection" id="connection"><i></i><span>连接中</span></div></header>
+    <header class="topbar"><div class="brandMark">${LUCIDE_ICONS.todo}</div><div class="brandCopy"><strong>xdeco</strong><span>Codex Todo</span></div><div class="connection" id="connection"><i></i><span>连接中</span></div></header>
     <div class="layout"><aside class="sidebar"><header class="sidebarHeader"><h2>项目</h2><button class="newButton" data-slot="button" id="newBinding" type="button">${LUCIDE_ICONS.plus}新增</button></header><div class="tree" id="tree"><div class="sideEmpty">正在读取关联…</div></div></aside><main class="workspace" id="workspace"><div class="empty"><div class="spinner"></div><span>正在读取 Todo…</span></div></main></div>
   </section>
   <div id="modalLayer"></div><div class="toast" id="toast" role="status" aria-live="polite"></div>

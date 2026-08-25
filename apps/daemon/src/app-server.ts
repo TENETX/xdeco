@@ -2,7 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { basename, isAbsolute, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { setTimeout as delay } from "node:timers/promises";
-import type { CodexThread, TodoArtifact } from "@whomi/shared";
+import type { CodexThread, TodoArtifact } from "@xdeco/shared";
 
 type JsonObject = Record<string, unknown>;
 
@@ -144,14 +144,14 @@ export class CodexAppServer {
       try {
         this.handle(JSON.parse(line) as JsonObject);
       } catch (error) {
-        process.stderr.write(`[whomi] invalid app-server message: ${String(error)}\n`);
+        process.stderr.write(`[xdeco] invalid app-server message: ${String(error)}\n`);
       }
     });
 
     await this.request("initialize", {
       clientInfo: {
-        name: "whomi",
-        title: "whomi",
+        name: "xdeco",
+        title: "xdeco",
         version: "0.1.0",
       },
       capabilities: { experimentalApi: true },

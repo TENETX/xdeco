@@ -1,6 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
 import { basename } from "node:path";
-import type { CodexProject } from "@whomi/shared";
+import type { CodexProject } from "@xdeco/shared";
 import { CODEX_GLOBAL_STATE_PATH } from "./config.js";
 
 interface StoredCodexProject {

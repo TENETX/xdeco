@@ -1,11 +1,11 @@
 ---
 name: management
-description: Manage whomi projects and Todo queues. Use when the user asks to remember, add, queue, send, retry, complete, archive, or inspect a Todo or project.
+description: Manage xdeco projects and Todo queues. Use when the user asks to remember, add, queue, send, retry, complete, archive, or inspect a Todo or project.
 ---
 
-# whomi management
+# xdeco management
 
-Use whomi tools as the source of truth for project and Todo operations.
+Use xdeco tools as the source of truth for project and Todo operations.
 
 ## Concepts
 
@@ -16,12 +16,12 @@ Use whomi tools as the source of truth for project and Todo operations.
 
 ## Decisions
 
-1. Use `open_whomi` when the user asks to view or manage the visual workspace.
+1. Use `open_xdeco` when the user asks to view or manage the visual workspace.
 2. Use `add_todo` for a single explicit Todo, including when the request comes from a conversation unrelated to the destination Project.
 3. Default new Todos to `draft`. Use `ready` only when the user explicitly asks to send, queue, start, or add it to the sending plan.
 4. Resolve a Project using an explicit ID or exact name. If several projects are plausible, ask the user instead of guessing.
 5. Use `capture_todos` when text or a screenshot should be split or rewritten into multiple Todos. Captured Todos remain drafts.
-6. Moving a Todo to `ready` enters its Project queue. If automatic dispatch is enabled, whomi starts it; otherwise use `start_project_queue` when the user asks to begin.
+6. Moving a Todo to `ready` enters its Project queue. If automatic dispatch is enabled, xdeco starts it; otherwise use `start_project_queue` when the user asks to begin.
 7. A failed Todo pauses later ready Todos in that Project. Use `retry_todo` only when the user asks to retry or resume that failure.
 8. Use `archived` for items the user no longer wants in normal views. Archiving does not delete project files or Codex history.
 

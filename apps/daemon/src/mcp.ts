@@ -4,13 +4,13 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import { TODO_STATUSES } from "@whomi/shared";
+import { TODO_STATUSES } from "@xdeco/shared";
 import { DATA_DIR } from "./config.js";
-import { WhomiService } from "./service.js";
-import { WHOMI_HTML, WHOMI_URI } from "./widget.js";
+import { XdecoService } from "./service.js";
+import { XDECO_HTML, XDECO_URI } from "./widget.js";
 
-const service = new WhomiService();
-const server = new McpServer({ name: "whomi", version: "0.2.0" });
+const service = new XdecoService();
+const server = new McpServer({ name: "xdeco", version: "0.2.0" });
 const WIDGET_CALLABLE_META = { ui: { visibility: ["app"] }, "openai/widgetAccessible": true } as const;
 
 function result(value: unknown) {
@@ -40,11 +40,11 @@ async function saveWidgetImage(file: z.infer<typeof widgetFileSchema>): Promise<
   return path;
 }
 
-server.registerResource("whomi", WHOMI_URI, {}, async () => ({
+server.registerResource("xdeco", XDECO_URI, {}, async () => ({
   contents: [{
-    uri: WHOMI_URI,
+    uri: XDECO_URI,
     mimeType: "text/html;profile=mcp-app",
-    text: WHOMI_HTML,
+    text: XDECO_HTML,
     _meta: {
       ui: { prefersBorder: true },
       "openai/widgetDescription": "A compact Codex-style Todo workspace. Group associated tasks by project, add a task from a searchable picker, and send Todos sequentially.",
@@ -54,28 +54,28 @@ server.registerResource("whomi", WHOMI_URI, {}, async () => ({
 }));
 
 server.registerTool("get_overview", {
-  title: "Get whomi overview",
+  title: "Get xdeco overview",
   description: "Return projects, Todos, queue states, Codex projects and destination tasks.",
   inputSchema: {}, outputSchema: { result: z.any() },
   annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   _meta: WIDGET_CALLABLE_META,
 }, async () => result(await service.overview()));
 
-server.registerTool("open_whomi", {
-  title: "Open whomi",
-  description: "Open the interactive whomi project and Todo queue.",
+server.registerTool("open_xdeco", {
+  title: "Open xdeco",
+  description: "Open the interactive xdeco project and Todo queue.",
   inputSchema: {}, outputSchema: { result: z.any() },
   annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   _meta: {
-    ui: { resourceUri: WHOMI_URI }, "openai/outputTemplate": WHOMI_URI,
+    ui: { resourceUri: XDECO_URI }, "openai/outputTemplate": XDECO_URI,
     "openai/widgetAccessible": true,
-    "openai/toolInvocation/invoking": "正在打开 whomi…", "openai/toolInvocation/invoked": "whomi 已打开",
+    "openai/toolInvocation/invoking": "正在打开 xdeco…", "openai/toolInvocation/invoked": "xdeco 已打开",
   },
 }, async () => result(await service.overview()));
 
 server.registerTool("add_todo", {
   title: "Add Todo",
-  description: "Add one Todo to whomi from any Codex conversation. Use projectId or an exact projectName. Default status is draft; use ready only when the user explicitly wants it queued for sequential sending.",
+  description: "Add one Todo to xdeco from any Codex conversation. Use projectId or an exact projectName. Default status is draft; use ready only when the user explicitly wants it queued for sequential sending.",
   inputSchema: {
     title: z.string().min(1),
     description: z.string().optional(),
@@ -102,7 +102,7 @@ server.registerTool("capture_todos", {
 
 server.registerTool("create_project", {
   title: "Create Project",
-  description: "Create a whomi project with a local root and optional destination Codex task.",
+  description: "Create a xdeco project with a local root and optional destination Codex task.",
   inputSchema: {
     name: z.string().min(1), rootPath: z.string().min(1),
     targetThreadId: z.string().nullable().optional(), autoDispatch: z.boolean().optional(),
@@ -113,7 +113,7 @@ server.registerTool("create_project", {
 }, async (input) => result(service.createProject(input)));
 
 server.registerTool("list_projects", {
-  title: "List Projects", description: "List whomi projects and their destination Codex tasks.",
+  title: "List Projects", description: "List xdeco projects and their destination Codex tasks.",
   inputSchema: {}, outputSchema: { result: z.any() },
   annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
 }, async () => result(service.listProjects()));

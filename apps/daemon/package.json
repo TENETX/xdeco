@@ -1,10 +1,10 @@
 {
-  "name": "@whomi/daemon",
+  "name": "@xdeco/daemon",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "bin": {
-    "whomi": "./dist/cli.js"
+    "xdeco": "./dist/cli.js"
   },
   "scripts": {
     "build:widget": "node scripts/build-widget-styles.mjs",
@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "latest",
-    "@whomi/shared": "workspace:*",
+    "@xdeco/shared": "workspace:*",
     "lucide": "^1.33.0",
     "zod": "latest"
   },
