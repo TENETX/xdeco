@@ -177,7 +177,7 @@ test("the first Todo creates and permanently binds its project thread", async ()
   assert.equal(threadParams.permissions, ":workspace");
   assert.equal(threadParams.approvalPolicy, "on-request");
   assert.equal(threadParams.approvalsReviewer, "auto_review");
-  assert.equal(service.getProject(project.id).targetThreadId, "thread_created");
+  assert.equal(service.listQueues(project.id)[0]?.targetThreadId, "thread_created");
   database.close();
 });
 
@@ -219,6 +219,7 @@ test("restores a running Codex turn after xdeco restarts", async () => {
     id: "run_restore",
     todoId: todo.id,
     projectId: project.id,
+    queueId: null,
     threadId: "thread_restore",
     turnId: "turn_restore",
     status: "running",

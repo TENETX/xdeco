@@ -2,9 +2,11 @@ import { randomUUID } from "node:crypto";
 import type {
   CaptureResult,
   CreateProjectInput,
+  CreateQueueInput,
   CreateTodoInput,
   Overview,
   Project,
+  Queue,
   Todo,
   TodoResult,
   TodoRun,
@@ -64,6 +66,7 @@ export class XdecoService {
     const catalog = await this.codexCatalog();
     return {
       projects: this.database.listProjects(),
+      queues: this.database.listQueues(projectId),
       codexProjects: catalog.projects,
       codexThreads: catalog.threads,
       todos,
@@ -112,14 +115,57 @@ export class XdecoService {
       name: requireText(input.name, "name"),
       rootPath: requireText(input.rootPath, "rootPath"),
     };
+    const existing = this.database.findProjectByName(normalized.name);
+    if (existing) {
+      if (existing.rootPath === normalized.rootPath) return existing;
+      throw new Error("A different shared project already uses this name");
+    }
     return this.database.createProject(randomUUID(), normalized);
   }
 
   updateProject(id: string, input: Partial<CreateProjectInput>): Project {
     const project = this.database.updateProject(id, input);
     if (!project) throw new Error("Project not found");
-    if (project.autoDispatch) this.kick(project.id);
+    if (project.autoDispatch) this.kickProject(project.id);
     return project;
+  }
+
+  listQueues(projectId?: string): Queue[] { return this.database.listQueues(projectId); }
+
+  getQueue(id: string): Queue {
+    const queue = this.database.getQueue(id);
+    if (!queue) throw new Error("Queue not found");
+    return queue;
+  }
+
+  private ensureDefaultQueue(projectId: string): Queue {
+    const existing = this.database.listQueues(projectId)[0];
+    if (existing) return existing;
+    const project = this.getProject(projectId);
+    return this.database.createQueue(randomUUID(), { projectId, targetThreadId: project.targetThreadId });
+  }
+
+  async createQueue(input: CreateQueueInput): Promise<Queue> {
+    const project = this.getProject(input.projectId);
+    let targetThreadId = input.targetThreadId ?? null;
+    if (!targetThreadId) {
+      targetThreadId = await this.codex.startThread({
+        model: EXECUTION_MODEL,
+        cwd: project.rootPath,
+        approvalPolicy: "on-request",
+        approvalsReviewer: "auto_review",
+        permissions: ":workspace",
+        serviceName: "xdeco_queue",
+      });
+      await this.codex.request("thread/name/set", { threadId: targetThreadId, name: `${project.name} · 队列` });
+    }
+    return this.database.createQueue(randomUUID(), { ...input, targetThreadId });
+  }
+
+  updateQueue(id: string, input: Partial<Omit<CreateQueueInput, "projectId">>): Queue {
+    const queue = this.database.updateQueue(id, input);
+    if (!queue) throw new Error("Queue not found");
+    return queue;
   }
 
   listTodos(projectId?: string | null, includeArchived = true): Todo[] {
@@ -160,15 +206,19 @@ export class XdecoService {
   addTodo(input: CreateTodoInput & { projectName?: string | null }): { todo: Todo; dispatchStarted: boolean } {
     const projectId = this.resolveProject(input.projectId, input.projectName);
     const status = input.status ?? "draft";
-    if (status === "ready" && !projectId) throw new Error("Ready todos must belong to a Project");
+    const queueId = input.queueId ?? null;
+    const queue = queueId ? this.getQueue(queueId) : status === "ready" && projectId ? this.ensureDefaultQueue(projectId) : null;
+    if (queue && projectId && queue.projectId !== projectId) throw new Error("Queue does not belong to this Project");
+    if (status === "ready" && !queue) throw new Error("Ready todos must belong to a Project queue");
     const todo = this.database.createTodo(randomUUID(), {
       ...input,
       title: requireText(input.title, "title"),
       projectId,
+      queueId: queue?.id ?? null,
       status,
     });
-    const dispatchStarted = status === "ready" && Boolean(projectId && this.getProject(projectId).autoDispatch);
-    if (dispatchStarted && projectId) this.kick(projectId);
+    const dispatchStarted = status === "ready" && Boolean(queue && this.getProject(queue.projectId).autoDispatch);
+    if (dispatchStarted && queue) this.kick(queue.id);
     return { todo, dispatchStarted };
   }
 
@@ -187,15 +237,15 @@ export class XdecoService {
   setStatus(id: string, status: TodoStatus, projectId?: string | null): Todo {
     const current = this.getTodo(id);
     const targetProjectId = projectId === undefined ? current.projectId : projectId;
-    if (["ready", "sending", "running"].includes(status) && !targetProjectId) {
-      throw new Error(`${status} todos must belong to a Project`);
+    if (["ready", "sending", "running"].includes(status) && (!targetProjectId || !current.queueId)) {
+      throw new Error(`${status} todos must belong to a Queue`);
     }
     if (status === "sending" || status === "running") {
       throw new Error("sending and running are managed by the dispatcher");
     }
     const todo = this.database.updateTodoStatus(id, status, projectId);
     if (!todo) throw new Error("Todo not found");
-    if (status === "ready" && todo.projectId && this.getProject(todo.projectId).autoDispatch) this.kick(todo.projectId);
+    if (status === "ready" && todo.queueId && todo.projectId && this.getProject(todo.projectId).autoDispatch) this.kick(todo.queueId);
     return todo;
   }
 
@@ -209,11 +259,11 @@ export class XdecoService {
     return todo;
   }
 
-  queueTodo(id: string, projectId: string, beforeTodoId?: string | null): Todo {
-    const project = this.getProject(projectId);
-    const todo = this.database.queueTodo(id, project.id, beforeTodoId);
+  queueTodo(id: string, queueId: string, beforeTodoId?: string | null): Todo {
+    const queue = this.getQueue(queueId);
+    const todo = this.database.queueTodo(id, queue.id, beforeTodoId);
     if (!todo) throw new Error("Todo not found");
-    if (project.autoDispatch) this.kick(project.id);
+    if (this.getProject(queue.projectId).autoDispatch) this.kick(queue.id);
     return todo;
   }
 
@@ -256,9 +306,17 @@ export class XdecoService {
 
   startProjectQueue(projectId: string): { project: Project; started: boolean } {
     const project = this.getProject(projectId);
-    const started = !this.dispatchers.has(projectId);
-    this.kick(projectId);
+    const queues = this.database.listQueues(project.id);
+    const started = queues.some((queue) => !this.dispatchers.has(queue.id));
+    this.kickProject(project.id);
     return { project, started };
+  }
+
+  startQueue(queueId: string): { queue: Queue; started: boolean } {
+    const queue = this.getQueue(queueId);
+    const started = !this.dispatchers.has(queue.id);
+    this.kick(queue.id);
+    return { queue, started };
   }
 
   retryTodo(id: string): Todo {
@@ -267,28 +325,33 @@ export class XdecoService {
     return this.setStatus(id, "ready");
   }
 
-  private kick(projectId: string): void {
-    if (this.dispatchers.has(projectId)) return;
-    const task = this.runQueue(projectId).finally(() => this.dispatchers.delete(projectId));
-    this.dispatchers.set(projectId, task);
+  private kickProject(projectId: string): void {
+    for (const queue of this.database.listQueues(projectId)) this.kick(queue.id);
+  }
+
+  private kick(queueId: string): void {
+    if (this.dispatchers.has(queueId)) return;
+    const task = this.runQueue(queueId).finally(() => this.dispatchers.delete(queueId));
+    this.dispatchers.set(queueId, task);
     void task;
   }
 
   private restoreActiveQueues(): void {
-    const projectIds = new Set(
+    const queueIds = new Set(
       this.database.listTodos(undefined, true)
-        .filter((todo) => todo.projectId && (todo.status === "sending" || todo.status === "running"))
-        .map((todo) => todo.projectId!),
+        .filter((todo) => todo.queueId && (todo.status === "sending" || todo.status === "running"))
+        .map((todo) => todo.queueId!),
     );
-    for (const projectId of projectIds) {
-      const task = this.recoverProjectQueue(projectId).finally(() => this.dispatchers.delete(projectId));
-      this.dispatchers.set(projectId, task);
+    for (const queueId of queueIds) {
+      const task = this.recoverQueue(queueId).finally(() => this.dispatchers.delete(queueId));
+      this.dispatchers.set(queueId, task);
       void task;
     }
   }
 
-  private async recoverProjectQueue(projectId: string): Promise<void> {
-    const todo = this.database.listTodos(projectId, true)
+  private async recoverQueue(queueId: string): Promise<void> {
+    const todo = this.database.listTodos(undefined, true)
+      .filter((candidate) => candidate.queueId === queueId)
       .find((candidate) => candidate.status === "sending" || candidate.status === "running");
     if (!todo) return;
     const run = this.database.latestRun(todo.id);
@@ -312,7 +375,7 @@ export class XdecoService {
       }
       this.database.updateRunByTurn(run.turnId, "completed", null);
       this.database.completeTodo(todo.id, run.threadId, run.turnId, finished.text);
-      await this.runQueue(projectId);
+      await this.runQueue(queueId);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.database.updateRunByTurn(run.turnId, "failed", message);
@@ -320,9 +383,9 @@ export class XdecoService {
     }
   }
 
-  private async runQueue(projectId: string): Promise<void> {
+  private async runQueue(queueId: string): Promise<void> {
     while (true) {
-      const todo = this.database.claimNextReady(projectId);
+      const todo = this.database.claimNextReady(queueId);
       if (!todo) return;
       try {
         const finished = await this.sendTodo(todo);
@@ -340,9 +403,10 @@ export class XdecoService {
   }
 
   private async sendTodo(todo: Todo): Promise<{ status: "completed" | "failed" | "interrupted"; text: string; error: string | null; threadId: string; turnId: string }> {
-    if (!todo.projectId) throw new Error("Todo has no Project");
-    let project = this.getProject(todo.projectId);
-    let threadId = project.targetThreadId;
+    if (!todo.projectId || !todo.queueId) throw new Error("Todo has no Queue");
+    const project = this.getProject(todo.projectId);
+    let queue = this.getQueue(todo.queueId);
+    let threadId = queue.targetThreadId;
     if (!threadId) {
       threadId = await this.codex.startThread({
         model: EXECUTION_MODEL,
@@ -352,8 +416,8 @@ export class XdecoService {
         permissions: ":workspace",
         serviceName: "xdeco_dispatch",
       });
-      await this.codex.request("thread/name/set", { threadId, name: project.name });
-      project = this.updateProject(project.id, { targetThreadId: threadId });
+      await this.codex.request("thread/name/set", { threadId, name: queue.name ?? project.name });
+      queue = this.updateQueue(queue.id, { targetThreadId: threadId });
     } else {
       await this.codex.resumeThread(threadId);
     }
@@ -373,15 +437,11 @@ export class XdecoService {
       },
       input: [{
         type: "text",
-        text: [
-          `执行 xdeco 项目「${project.name}」中的 Todo：${todo.title}`,
-          todo.description ? `\n背景与验收条件：\n${todo.description}` : "",
-          "\n请直接完成工作并做必要验证；真正需要用户选择时再询问。",
-        ].join(""),
+        text: todo.description ? `${todo.title}\n\n${todo.description}` : todo.title,
       }],
     });
     const run: TodoRun = {
-      id: randomUUID(), todoId: todo.id, projectId: project.id, threadId, turnId,
+      id: randomUUID(), todoId: todo.id, projectId: project.id, queueId: queue.id, threadId, turnId,
       status: "running", startedAt: new Date().toISOString(), finishedAt: null, error: null,
     };
     this.database.createRun(run);

@@ -2,10 +2,11 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { mkdir, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { randomUUID } from "node:crypto";
-import type { CreateProjectInput, CreateTodoInput } from "@xdeco/shared";
+import type { CreateProjectInput, CreateQueueInput, CreateTodoInput } from "@xdeco/shared";
 import { isTodoMode, isTodoStatus } from "@xdeco/shared";
 import { DAEMON_HOST, DAEMON_PORT, DATA_DIR } from "./config.js";
 import { XdecoService } from "./service.js";
+import { publicError } from "./errors.js";
 
 const service = new XdecoService();
 
@@ -57,6 +58,13 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   const queueMatch = path.match(/^\/api\/projects\/([^/]+)\/dispatch$/);
   if (queueMatch && request.method === "POST") return send(response, 202, service.startProjectQueue(queueMatch[1]!));
 
+  if (path === "/api/queues" && request.method === "GET") return send(response, 200, service.listQueues(url.searchParams.get("projectId") ?? undefined));
+  if (path === "/api/queues" && request.method === "POST") return send(response, 201, await service.createQueue(await jsonBody(request) as CreateQueueInput));
+  const laneMatch = path.match(/^\/api\/queues\/([^/]+)$/);
+  if (laneMatch && request.method === "PATCH") return send(response, 200, service.updateQueue(laneMatch[1]!, await jsonBody(request)));
+  const laneDispatchMatch = path.match(/^\/api\/queues\/([^/]+)\/dispatch$/);
+  if (laneDispatchMatch && request.method === "POST") return send(response, 202, service.startQueue(laneDispatchMatch[1]!));
+
   if (path === "/api/todos" && request.method === "GET") return send(response, 200, service.listTodos(url.searchParams.get("projectId"), url.searchParams.get("includeArchived") === "true"));
   if (path === "/api/todos" && request.method === "POST") return send(response, 201, service.addTodo(await jsonBody(request) as CreateTodoInput));
   const todoMatch = path.match(/^\/api\/todos\/([^/]+)$/);
@@ -79,9 +87,9 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   const queueTodoMatch = path.match(/^\/api\/todos\/([^/]+)\/queue$/);
   if (queueTodoMatch && request.method === "PATCH") {
     const body = await jsonBody(request);
-    if (typeof body.projectId !== "string" || !body.projectId) throw new Error("projectId is required");
+    if (typeof body.queueId !== "string" || !body.queueId) throw new Error("queueId is required");
     if (body.beforeTodoId != null && typeof body.beforeTodoId !== "string") throw new Error("Invalid beforeTodoId");
-    return send(response, 200, service.queueTodo(queueTodoMatch[1]!, body.projectId, body.beforeTodoId));
+    return send(response, 200, service.queueTodo(queueTodoMatch[1]!, body.queueId, body.beforeTodoId));
   }
 
   if (path === "/api/capture" && request.method === "POST") {
@@ -92,8 +100,8 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
 }
 
 const server = createServer((request, response) => void route(request, response).catch((error) => {
-  const message = error instanceof Error ? error.message : String(error);
-  send(response, message.toLowerCase().includes("not found") ? 404 : 400, { error: message });
+  const detail = publicError(error);
+  send(response, detail.code.endsWith("not_found") ? 404 : 400, { error: detail });
 }));
 
 server.listen(DAEMON_PORT, DAEMON_HOST, () => process.stdout.write(`xdeco API listening on http://${DAEMON_HOST}:${DAEMON_PORT}\n`));

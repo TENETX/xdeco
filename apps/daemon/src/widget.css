@@ -157,10 +157,10 @@
   .sectionTitle strong { @apply text-[12px] font-semibold text-foreground; }
   .sectionTitle span { @apply tabular-nums; }
   .todoList { @apply border-t; }
-  .todoRow { @apply grid min-h-16 grid-cols-[8px_minmax(0,1fr)_auto] items-center gap-2.5 border-b px-0.5 py-2.5; }
+  .todoRow { @apply grid min-h-16 grid-cols-[8px_minmax(0,1fr)_auto] items-center gap-2.5 border-b px-0.5 py-2.5 transition-[background-color,transform] duration-150 hover:bg-accent/50; }
   .statusDot { @apply size-2 rounded-full bg-muted-foreground/50; }
   .statusDot.ready { @apply bg-queued; }
-  .statusDot.sending, .statusDot.running { @apply bg-running; }
+  .statusDot.sending, .statusDot.running { @apply animate-pulse bg-running; }
   .statusDot.completed { @apply bg-success; }
   .statusDot.failed { @apply bg-destructive; }
   .todoCopy { @apply min-w-0; }

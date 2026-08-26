@@ -36,6 +36,17 @@ export interface Project {
   updatedAt: string;
 }
 
+/** A sequential execution lane within a project, bound to one Codex task. */
+export interface Queue {
+  id: string;
+  projectId: string;
+  targetThreadId: string | null;
+  name: string | null;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CodexProject {
   id: string;
   name: string;
@@ -53,6 +64,7 @@ export interface CodexThread {
 export interface Todo {
   id: string;
   projectId: string | null;
+  queueId: string | null;
   title: string;
   description: string;
   mode: TodoMode;
@@ -86,6 +98,7 @@ export interface TodoRun {
   id: string;
   todoId: string;
   projectId: string;
+  queueId: string | null;
   threadId: string;
   turnId: string;
   status: "running" | "completed" | "failed" | "interrupted";
@@ -102,6 +115,7 @@ export interface ControllerState {
 
 export interface Overview {
   projects: Project[];
+  queues: Queue[];
   codexProjects: CodexProject[];
   codexThreads: CodexThread[];
   todos: Todo[];
@@ -123,8 +137,15 @@ export interface CreateTodoInput {
   mode?: TodoMode;
   status?: TodoStatus;
   projectId?: string | null;
+  queueId?: string | null;
   sourceType?: TodoSource;
   sourcePath?: string | null;
+}
+
+export interface CreateQueueInput {
+  projectId: string;
+  targetThreadId?: string | null;
+  name?: string | null;
 }
 
 export interface CaptureResult {
