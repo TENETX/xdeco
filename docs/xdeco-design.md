@@ -14,7 +14,7 @@ Project → TodoQueue → MessageDispatcher
 ```
 
 - Project：Todo 分组、本地项目根目录、目标 Codex task。
-- TodoQueue：按项目和位置排序的待发送工作。
+- TodoQueue：按项目和位置排序、各自携带执行模式的待发送工作。
 - MessageDispatcher：每个项目逐条创建 Codex turn。
 
 ## 2. 数据模型
@@ -45,6 +45,8 @@ type TodoStatus =
   | "failed"
   | "archived";
 ```
+
+每条 Todo 还保存独立的 Codex 协作模式：`default` 直接执行，`plan` 先产出规划。模式不属于 Project。
 
 只有 `ready` 会触发发送。`sending` 和 `running` 只能由调度器写入。
 
@@ -78,6 +80,7 @@ add_todo({
   description?,
   projectId?,
   projectName?,
+  mode?: "default" | "plan",
   status?: "draft" | "ready"
 })
 ```
@@ -98,6 +101,7 @@ add_todo({
 - 项目分组支持展开/收起；task 行仅展示标题，路径保留为搜索与悬停信息；
 - 选中 task 后一键关联，并自动隐藏底层 Project 绑定细节；
 - 向当前 task 加入 Todo 队列；
+- 为每条 Todo 选择执行或规划模式；
 - 查看 Todo 状态、失败重试、AI 回复与产出物。
 
 插件 UI 不提供手动放大/缩小、显示模式切换、看板列、状态编辑、项目管理或调度配置；布局跟随宿主宽度自适应。完整能力仍保留在 MCP tools 和本地数据层。

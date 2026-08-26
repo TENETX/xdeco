@@ -3,8 +3,10 @@ import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type {
   CreateProjectInput,
+  CreateQueueInput,
   CreateTodoInput,
   Project,
+  Queue,
   Todo,
   TodoRun,
   TodoStatus,
@@ -35,9 +37,15 @@ export class XdecoDatabase {
     return Boolean(this.db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name));
   }
 
+  private hasColumn(table: string, column: string): boolean {
+    return (this.db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>)
+      .some((candidate) => candidate.name === column);
+  }
+
   private migrate(): void {
     if (!this.hasTable("projects") && this.hasTable("plans")) this.migrateLegacyPlans();
     this.createSchema();
+    this.migrateProjectQueues();
   }
 
   private createSchema(): void {
@@ -56,8 +64,10 @@ export class XdecoDatabase {
       CREATE TABLE IF NOT EXISTS todos (
         id TEXT PRIMARY KEY,
         project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+        queue_id TEXT REFERENCES queues(id) ON DELETE SET NULL,
         title TEXT NOT NULL,
         description TEXT NOT NULL DEFAULT '',
+        mode TEXT NOT NULL DEFAULT 'default' CHECK (mode IN ('default','plan')),
         status TEXT NOT NULL CHECK (status IN ('draft','ready','sending','running','completed','failed','archived')),
         source_type TEXT NOT NULL CHECK (source_type IN ('text','screenshot','mcp')),
         source_path TEXT,
@@ -74,10 +84,25 @@ export class XdecoDatabase {
       CREATE INDEX IF NOT EXISTS todos_project_status_idx
         ON todos(project_id, status, position, created_at);
 
+      CREATE TABLE IF NOT EXISTS queues (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        target_thread_id TEXT,
+        name TEXT,
+        position INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS queues_project_idx ON queues(project_id, position, created_at);
+      CREATE UNIQUE INDEX IF NOT EXISTS queues_project_thread_idx
+        ON queues(project_id, target_thread_id) WHERE target_thread_id IS NOT NULL;
+
       CREATE TABLE IF NOT EXISTS todo_runs (
         id TEXT PRIMARY KEY,
         todo_id TEXT NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
         project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        queue_id TEXT REFERENCES queues(id) ON DELETE SET NULL,
         thread_id TEXT NOT NULL,
         turn_id TEXT NOT NULL,
         status TEXT NOT NULL,
@@ -93,6 +118,37 @@ export class XdecoDatabase {
         value TEXT NOT NULL
       );
     `);
+    if (!this.hasColumn("todos", "mode")) {
+      this.db.exec("ALTER TABLE todos ADD COLUMN mode TEXT NOT NULL DEFAULT 'default' CHECK (mode IN ('default','plan'))");
+    }
+    if (!this.hasColumn("todos", "queue_id")) this.db.exec("ALTER TABLE todos ADD COLUMN queue_id TEXT");
+    if (!this.hasColumn("todo_runs", "queue_id")) this.db.exec("ALTER TABLE todo_runs ADD COLUMN queue_id TEXT");
+  }
+
+  /** Move the old single project binding into one durable queue exactly once. */
+  private migrateProjectQueues(): void {
+    const projects = this.db.prepare("SELECT id, target_thread_id AS targetThreadId FROM projects WHERE target_thread_id IS NOT NULL").all() as Array<{ id: string; targetThreadId: string }>;
+    if (!projects.length) return;
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const timestamp = now();
+      const insertQueue = this.db.prepare(`
+        INSERT OR IGNORE INTO queues (id, project_id, target_thread_id, name, position, created_at, updated_at)
+        VALUES (?, ?, ?, NULL, 0, ?, ?)
+      `);
+      const assignTodos = this.db.prepare("UPDATE todos SET queue_id = ? WHERE project_id = ? AND queue_id IS NULL");
+      const assignRuns = this.db.prepare("UPDATE todo_runs SET queue_id = ? WHERE project_id = ? AND queue_id IS NULL");
+      for (const project of projects) {
+        const queueId = `legacy_queue_${project.id}`;
+        insertQueue.run(queueId, project.id, project.targetThreadId, timestamp, timestamp);
+        assignTodos.run(queueId, project.id);
+        assignRuns.run(queueId, project.id);
+      }
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
   }
 
   private migrateLegacyPlans(): void {
@@ -303,6 +359,9 @@ export class XdecoDatabase {
       id, input.name, input.rootPath, input.targetThreadId ?? null,
       input.autoDispatch === false ? 0 : 1, input.color ?? "#6f8f4f", timestamp, timestamp,
     );
+    if (input.targetThreadId !== undefined) {
+      this.createQueue(`queue_${id}`, { projectId: id, targetThreadId: input.targetThreadId ?? null });
+    }
     return this.getProject(id)!;
   }
 
@@ -324,6 +383,46 @@ export class XdecoDatabase {
     return this.getProject(id);
   }
 
+  listQueues(projectId?: string): Queue[] {
+    const where = projectId ? "WHERE project_id = ?" : "";
+    const rows = this.db.prepare(`
+      SELECT id, project_id AS projectId, target_thread_id AS targetThreadId, name, position,
+        created_at AS createdAt, updated_at AS updatedAt
+      FROM queues ${where} ORDER BY position, created_at
+    `).all(...(projectId ? [projectId] : []));
+    return rows as unknown as Queue[];
+  }
+
+  getQueue(id: string): Queue | null {
+    return (this.db.prepare(`
+      SELECT id, project_id AS projectId, target_thread_id AS targetThreadId, name, position,
+        created_at AS createdAt, updated_at AS updatedAt
+      FROM queues WHERE id = ?
+    `).get(id) as Queue | undefined) ?? null;
+  }
+
+  createQueue(id: string, input: CreateQueueInput): Queue {
+    const timestamp = now();
+    const next = this.db.prepare("SELECT COALESCE(MAX(position), -1) + 1 AS position FROM queues WHERE project_id = ?")
+      .get(input.projectId) as { position: number };
+    this.db.prepare(`
+      INSERT INTO queues (id, project_id, target_thread_id, name, position, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(id, input.projectId, input.targetThreadId ?? null, input.name ?? null, next.position, timestamp, timestamp);
+    return this.getQueue(id)!;
+  }
+
+  updateQueue(id: string, input: Partial<Omit<CreateQueueInput, "projectId">>): Queue | null {
+    const fields: Array<[string, SqlValue]> = [];
+    if ("targetThreadId" in input) fields.push(["target_thread_id", input.targetThreadId ?? null]);
+    if ("name" in input) fields.push(["name", input.name ?? null]);
+    if (!fields.length) return this.getQueue(id);
+    fields.push(["updated_at", now()]);
+    this.db.prepare(`UPDATE queues SET ${fields.map(([column]) => `${column} = ?`).join(", ")} WHERE id = ?`)
+      .run(...fields.map(([, value]) => value), id);
+    return this.getQueue(id);
+  }
+
   listTodos(projectId?: string | null, includeArchived = true): Todo[] {
     const clauses: string[] = [];
     const params: SqlValue[] = [];
@@ -338,7 +437,7 @@ export class XdecoDatabase {
   }
 
   private todoSelect(): string {
-    return `SELECT id, project_id AS projectId, title, description, status,
+    return `SELECT id, project_id AS projectId, queue_id AS queueId, title, description, mode, status,
       source_type AS sourceType, source_path AS sourcePath, position,
       created_at AS createdAt, updated_at AS updatedAt, completed_at AS completedAt,
       completion_thread_id AS completionThreadId, completion_turn_id AS completionTurnId,
@@ -348,40 +447,97 @@ export class XdecoDatabase {
   createTodo(id: string, input: CreateTodoInput): Todo {
     const timestamp = now();
     const status = input.status ?? "draft";
-    const next = this.db.prepare("SELECT COALESCE(MAX(position), -1) + 1 AS position FROM todos WHERE project_id IS ?")
-      .get(input.projectId ?? null) as { position: number };
+    let queueId = input.queueId ?? null;
+    if (!queueId && input.projectId && ["ready", "sending", "running"].includes(status)) {
+      const queue = this.listQueues(input.projectId)[0] ?? this.createQueue(`queue_${input.projectId}`, { projectId: input.projectId, targetThreadId: this.getProject(input.projectId)?.targetThreadId ?? null });
+      queueId = queue.id;
+    }
+    const next = this.db.prepare("SELECT COALESCE(MAX(position), -1) + 1 AS position FROM todos WHERE queue_id IS ?")
+      .get(queueId) as { position: number };
     this.db.prepare(`
       INSERT INTO todos (
-        id, project_id, title, description, status, source_type, source_path,
+        id, project_id, queue_id, title, description, mode, status, source_type, source_path,
         position, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      id, input.projectId ?? null, input.title, input.description ?? "", status,
+      id, input.projectId ?? null, queueId, input.title, input.description ?? "", input.mode ?? "default", status,
       input.sourceType ?? "text", input.sourcePath ?? null, next.position, timestamp, timestamp,
     );
     return this.getTodo(id)!;
+  }
+
+  updateTodoMode(id: string, mode: Todo["mode"]): Todo | null {
+    this.db.prepare("UPDATE todos SET mode = ?, updated_at = ? WHERE id = ?")
+      .run(mode, now(), id);
+    return this.getTodo(id);
   }
 
   updateTodoStatus(id: string, status: TodoStatus, projectId?: string | null, error?: string | null): Todo | null {
     const timestamp = now();
     const completedAt = status === "completed" ? timestamp : null;
     if (projectId !== undefined) {
-      this.db.prepare(`UPDATE todos SET status = ?, project_id = ?, updated_at = ?, completed_at = ?, last_error = ? WHERE id = ?`)
-        .run(status, projectId, timestamp, completedAt, error ?? null, id);
+      this.db.prepare(`UPDATE todos SET status = ?, project_id = ?, queue_id = CASE WHEN ? = 'draft' THEN NULL ELSE queue_id END, updated_at = ?, completed_at = ?, last_error = ? WHERE id = ?`)
+        .run(status, projectId, status, timestamp, completedAt, error ?? null, id);
     } else {
-      this.db.prepare(`UPDATE todos SET status = ?, updated_at = ?, completed_at = ?, last_error = ? WHERE id = ?`)
-        .run(status, timestamp, completedAt, error ?? null, id);
+      this.db.prepare(`UPDATE todos SET status = ?, queue_id = CASE WHEN ? = 'draft' THEN NULL ELSE queue_id END, updated_at = ?, completed_at = ?, last_error = ? WHERE id = ?`)
+        .run(status, status, timestamp, completedAt, error ?? null, id);
     }
     return this.getTodo(id);
   }
 
-  claimNextReady(projectId: string): Todo | null {
+  queueTodo(id: string, queueId: string, beforeTodoId?: string | null): Todo | null {
     this.db.exec("BEGIN IMMEDIATE");
     try {
-      const active = this.db.prepare("SELECT 1 FROM todos WHERE project_id = ? AND status IN ('sending','running') LIMIT 1").get(projectId);
+      const current = this.getTodo(id);
+      if (!current) throw new Error("Todo not found");
+      if (["sending", "running", "completed", "archived"].includes(current.status)) {
+        throw new Error("This Todo cannot be moved into the queue");
+      }
+
+      const queue = this.getQueue(queueId) ?? (this.getProject(queueId)
+        ? this.listQueues(queueId)[0] ?? this.createQueue(`queue_${queueId}`, { projectId: queueId, targetThreadId: this.getProject(queueId)?.targetThreadId ?? null })
+        : null);
+      if (!queue) throw new Error("Queue not found");
+      const queued = this.db.prepare(`
+        SELECT id FROM todos
+        WHERE queue_id = ? AND status = 'ready' AND id != ?
+        ORDER BY position, created_at
+      `).all(queue.id, id) as Array<{ id: string }>;
+      let insertAt = queued.length;
+      if (beforeTodoId) {
+        const index = queued.findIndex((todo) => todo.id === beforeTodoId);
+        if (index < 0) throw new Error("Queue insertion target not found");
+        insertAt = index;
+      }
+      queued.splice(insertAt, 0, { id });
+
+      const timestamp = now();
+      this.db.prepare(`
+        UPDATE todos SET project_id = ?, queue_id = ?, status = 'ready', updated_at = ?,
+          completed_at = NULL, last_error = NULL
+        WHERE id = ?
+      `).run(queue.projectId, queue.id, timestamp, id);
+      const active = this.db.prepare(`
+        SELECT COUNT(*) AS count FROM todos
+        WHERE queue_id = ? AND status IN ('sending', 'running')
+      `).get(queue.id) as { count: number };
+      const updatePosition = this.db.prepare("UPDATE todos SET position = ? WHERE id = ?");
+      queued.forEach((todo, index) => updatePosition.run(index + (active.count ? 1 : 0), todo.id));
+      this.db.exec("COMMIT");
+      return this.getTodo(id);
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
+  claimNextReady(queueId: string): Todo | null {
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const active = this.db.prepare("SELECT 1 FROM todos WHERE queue_id = ? AND status IN ('sending','running') LIMIT 1").get(queueId);
       if (active) { this.db.exec("COMMIT"); return null; }
-      const row = this.db.prepare("SELECT id FROM todos WHERE project_id = ? AND status = 'ready' ORDER BY position, created_at LIMIT 1")
-        .get(projectId) as { id: string } | undefined;
+      const row = this.db.prepare("SELECT id FROM todos WHERE queue_id = ? AND status = 'ready' ORDER BY position, created_at LIMIT 1")
+        .get(queueId) as { id: string } | undefined;
       if (!row) { this.db.exec("COMMIT"); return null; }
       this.db.prepare("UPDATE todos SET status = 'sending', updated_at = ?, last_error = NULL WHERE id = ? AND status = 'ready'")
         .run(now(), row.id);
@@ -405,15 +561,15 @@ export class XdecoDatabase {
 
   createRun(run: TodoRun): TodoRun {
     this.db.prepare(`
-      INSERT INTO todo_runs (id, todo_id, project_id, thread_id, turn_id, status, started_at, finished_at, error)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(run.id, run.todoId, run.projectId, run.threadId, run.turnId, run.status, run.startedAt, run.finishedAt, run.error);
+      INSERT INTO todo_runs (id, todo_id, project_id, queue_id, thread_id, turn_id, status, started_at, finished_at, error)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(run.id, run.todoId, run.projectId, run.queueId, run.threadId, run.turnId, run.status, run.startedAt, run.finishedAt, run.error);
     return run;
   }
 
   latestRun(todoId: string): TodoRun | null {
     return (this.db.prepare(`
-      SELECT id, todo_id AS todoId, project_id AS projectId, thread_id AS threadId,
+      SELECT id, todo_id AS todoId, project_id AS projectId, queue_id AS queueId, thread_id AS threadId,
         turn_id AS turnId, status, started_at AS startedAt, finished_at AS finishedAt, error
       FROM todo_runs WHERE todo_id = ? ORDER BY started_at DESC LIMIT 1
     `).get(todoId) as unknown as TodoRun | undefined) ?? null;

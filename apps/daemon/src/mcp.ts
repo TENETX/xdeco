@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import { TODO_STATUSES } from "@xdeco/shared";
+import { TODO_MODES, TODO_STATUSES } from "@xdeco/shared";
 import { DATA_DIR } from "./config.js";
 import { XdecoService } from "./service.js";
 import { XDECO_HTML, XDECO_URI } from "./widget.js";
@@ -81,6 +81,7 @@ server.registerTool("add_todo", {
     description: z.string().optional(),
     projectId: z.string().nullable().optional(),
     projectName: z.string().nullable().optional(),
+    mode: z.enum(TODO_MODES).optional(),
     status: z.enum(TODO_STATUSES).optional(),
   },
   outputSchema: { result: z.any() },
@@ -145,6 +146,15 @@ server.registerTool("set_todo_status", {
   annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   _meta: WIDGET_CALLABLE_META,
 }, async (input) => result(service.setStatus(input.todoId, input.status, input.projectId)));
+
+server.registerTool("set_todo_mode", {
+  title: "Set Todo Mode",
+  description: "Choose whether one Todo executes directly or enters Codex plan mode. This setting belongs to the Todo, not its project.",
+  inputSchema: { todoId: z.string(), mode: z.enum(TODO_MODES) },
+  outputSchema: { result: z.any() },
+  annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  _meta: WIDGET_CALLABLE_META,
+}, async (input) => result(service.setMode(input.todoId, input.mode)));
 
 server.registerTool("start_project_queue", {
   title: "Start Project Queue",

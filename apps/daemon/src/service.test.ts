@@ -74,6 +74,7 @@ test("returns the completed AI answer and artifacts without routing metadata", a
     assert.deepEqual(result, {
       title: "Show result",
       answer: "已经完成并通过测试。",
+      answerHtml: "<p>已经完成并通过测试。</p>\n",
       artifacts: [{ kind: "file", name: "result.md", uri: "/tmp/result.md" }],
     });
     assert.equal("completionThreadId" in result, false);
@@ -126,6 +127,60 @@ test("dispatches ready Todos one at a time in position order", async () => {
   database.close();
 });
 
+test("dispatches each Todo with its own Codex collaboration mode", async () => {
+  const database = new XdecoDatabase(":memory:");
+  let turnParams: any;
+  const codex = {
+    available: async () => true,
+    listThreads: async () => [],
+    resumeThread: async () => undefined,
+    startTurn: async (params: any) => { turnParams = params; return "turn_plan"; },
+    waitForTurn: async () => ({ status: "completed", text: "planned", error: null }),
+  } as any;
+  const service = new XdecoService(database, codex, emptyCatalog);
+  const project = service.createProject({ name: "Modes", rootPath: "/workspace/modes", targetThreadId: "thread_modes", autoDispatch: false });
+  const todo = service.addTodo({ title: "Plan first", projectId: project.id, mode: "plan", status: "ready" }).todo;
+
+  service.startProjectQueue(project.id);
+  await tick(); await tick();
+
+  assert.equal(todo.mode, "plan");
+  assert.equal(turnParams.collaborationMode.mode, "plan");
+  assert.equal(turnParams.collaborationMode.settings.developer_instructions, null);
+  assert.equal(turnParams.permissions, ":workspace");
+  assert.equal(turnParams.approvalPolicy, "on-request");
+  assert.equal(turnParams.approvalsReviewer, "auto_review");
+  assert.equal(service.getTodo(todo.id).status, "completed");
+  database.close();
+});
+
+test("the first Todo creates and permanently binds its project thread", async () => {
+  const database = new XdecoDatabase(":memory:");
+  let created = 0;
+  let threadParams: any;
+  const codex = {
+    available: async () => true,
+    listThreads: async () => [],
+    startThread: async (params: any) => { created += 1; threadParams = params; return "thread_created"; },
+    request: async () => undefined,
+    startTurn: async () => "turn_created",
+    waitForTurn: async () => ({ status: "completed", text: "done", error: null }),
+  } as any;
+  const service = new XdecoService(database, codex, emptyCatalog);
+  const project = service.createProject({ name: "Unbound", rootPath: "/workspace/unbound", autoDispatch: false });
+  service.addTodo({ title: "Create the task", projectId: project.id, status: "ready" });
+
+  service.startProjectQueue(project.id);
+  await tick(); await tick();
+
+  assert.equal(created, 1);
+  assert.equal(threadParams.permissions, ":workspace");
+  assert.equal(threadParams.approvalPolicy, "on-request");
+  assert.equal(threadParams.approvalsReviewer, "auto_review");
+  assert.equal(service.listQueues(project.id)[0]?.targetThreadId, "thread_created");
+  database.close();
+});
+
 test("a failed Todo pauses the remaining project queue", async () => {
   const database = new XdecoDatabase(":memory:");
   let calls = 0;
@@ -164,6 +219,7 @@ test("restores a running Codex turn after xdeco restarts", async () => {
     id: "run_restore",
     todoId: todo.id,
     projectId: project.id,
+    queueId: null,
     threadId: "thread_restore",
     turnId: "turn_restore",
     status: "running",

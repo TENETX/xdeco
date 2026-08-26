@@ -34,12 +34,12 @@ SQLite 默认位于 `~/.codex/xdeco/xdeco.sqlite`，启用 WAL 和外键。主�
 
 | 表 | 用途 |
 | --- | --- |
-| `projects` | 项目名称、本地根目录、目标 task、自动调度开关 |
-| `todos` | Todo 内容、状态、排序、来源、完成结果与最近错误 |
+| `projects` | 项目名称、本地根目录、唯一目标 task、自动调度开关 |
+| `todos` | Todo 内容、Codex 协作模式、状态、排序、来源、完成结果与最近错误 |
 | `todo_runs` | 每次实际发送对应的 task、turn、耗时状态和错误 |
 | `settings` | 守护进程内部设置，目前保存捕获专用 task ID |
 
-Todo 使用 `position, created_at` 确定项目内顺序。Project 删除时 Todo 的 `project_id` 会置空；Run 记录随 Todo 或 Project 删除级联清理。当前应用没有暴露删除接口。
+Todo 使用 `position, created_at` 确定项目内顺序。拖动插队时，服务在一个 `BEGIN IMMEDIATE` 事务中重新编号该 Project 的 `ready` 项；活动项固定为车头且不参与拖动。Project 删除时 Todo 的 `project_id` 会置空；Run 记录随 Todo 或 Project 删除级联清理。当前应用没有暴露删除接口。
 
 旧版 `plans` 数据库会在首次打开时迁移成 `projects`。如果检测到 `~/.codex/plan-orchestrator/plan-orchestrator.sqlite`，默认继续使用该文件并执行兼容迁移。
 
@@ -49,13 +49,13 @@ Todo 使用 `position, created_at` 确定项目内顺序。Project 删除时 Tod
 2. 自动调度开启，或显式调用“开始队列”后，服务为该 Project 创建一个内存 dispatcher。
 3. `claimNextReady` 在 `BEGIN IMMEDIATE` 事务中确认项目没有 `sending/running` 项，并领取最早的 `ready`，原子更新为 `sending`。
 4. Project 尚未绑定 task 时，以 `rootPath` 为工作目录创建 Codex task，并把 task ID 写回 Project；否则恢复既有 task。
-5. 创建 turn 后写入 `todo_runs`，Todo 更新为 `running`。
+5. 按 Todo 自己的 `default` 或 `plan` 协作模式创建 turn，写入 `todo_runs`，Todo 更新为 `running`。
 6. turn 完成后写入摘要、task ID、turn ID，并继续领取下一条。
 7. turn 失败、中断或调用异常时，Todo 更新为 `failed`，记录 `last_error`，该 Project 的本轮队列停止。
 
 同一 Node.js 进程还通过 `dispatchers` Map 避免同一 Project 重复启动循环；SQLite 事务用于防止多个插件会话或进程重复领取同一 Todo。不同 Project 可以并行。
 
-执行 turn 默认使用 `XDECO_EXECUTION_MODEL`，工作区权限为 `workspace-write`，批准策略为 `never`，最长等待 24 小时。
+执行 turn 默认使用 `XDECO_EXECUTION_MODEL` 和 `:workspace` 权限配置；需要超出工作区的操作由 Codex `auto_review` 审核，避免无人处理的审批请求直接中断任务。最长等待 24 小时；模型与推理强度保持统一，协作模式由每条 Todo 决定。
 
 ## 5. 内容捕获链路
 
@@ -74,6 +74,7 @@ Todo 使用 `position, created_at` 确定项目内顺序。Project 删除时 Tod
 - `ready`、`sending`、`running` 必须属于 Project。
 - `sending` 和 `running` 只能由 dispatcher 写入，外部接口不能直接设置。
 - 每个 Project 同时最多存在一个 `sending` 或 `running` Todo。
+- `sending`、`running`、`completed` 和 `archived` 不能通过插队接口移动。
 - 失败不会自动跳过，必须显式重试后才能继续。
 - 完成结果保留 task/turn 标识；读取详细结果失败时可回退到数据库中的完成摘要。
 - `archived` 是软归档，不删除本地文件、Run 或 Codex 历史。
