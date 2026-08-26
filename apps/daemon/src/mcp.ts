@@ -6,12 +6,35 @@ import { join } from "node:path";
 import { z } from "zod";
 import { TODO_MODES, TODO_STATUSES } from "@xdeco/shared";
 import { DATA_DIR } from "./config.js";
+import { LocalUiServer } from "./local-ui.js";
 import { XdecoService } from "./service.js";
 import { XDECO_HTML, XDECO_URI } from "./widget.js";
 
 const service = new XdecoService();
 const server = new McpServer({ name: "xdeco", version: "0.2.0" });
 const WIDGET_CALLABLE_META = { ui: { visibility: ["app"] }, "openai/widgetAccessible": true } as const;
+
+const localUi = new LocalUiServer(XDECO_HTML, async (name, args) => {
+  switch (name) {
+    case "get_overview": return service.overview();
+    case "create_project": return service.createProject(args as unknown as Parameters<typeof service.createProject>[0]);
+    case "update_project": {
+      if (typeof args.projectId !== "string") throw new Error("缺少项目 ID");
+      const { projectId, ...input } = args;
+      return service.updateProject(projectId, input as Parameters<typeof service.updateProject>[1]);
+    }
+    case "add_todo": return service.addTodo(args as unknown as Parameters<typeof service.addTodo>[0]);
+    case "retry_todo": {
+      if (typeof args.todoId !== "string") throw new Error("缺少 Todo ID");
+      return service.retryTodo(args.todoId);
+    }
+    case "get_todo_result": {
+      if (typeof args.todoId !== "string") throw new Error("缺少 Todo ID");
+      return service.getTodoResult(args.todoId);
+    }
+    default: throw new Error("此操作暂不支持本地看板");
+  }
+});
 
 function result(value: unknown) {
   return {
@@ -66,12 +89,8 @@ server.registerTool("open_xdeco", {
   description: "Open the interactive xdeco project and Todo queue.",
   inputSchema: {}, outputSchema: { result: z.any() },
   annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-  _meta: {
-    ui: { resourceUri: XDECO_URI }, "openai/outputTemplate": XDECO_URI,
-    "openai/widgetAccessible": true,
-    "openai/toolInvocation/invoking": "正在打开 xdeco…", "openai/toolInvocation/invoked": "xdeco 已打开",
-  },
-}, async () => result(await service.overview()));
+  _meta: { ...WIDGET_CALLABLE_META, "openai/toolInvocation/invoking": "正在启动 xdeco 看板…", "openai/toolInvocation/invoked": "xdeco 看板已就绪" },
+}, async () => result({ url: await localUi.ensure(), overview: await service.overview() }));
 
 server.registerTool("add_todo", {
   title: "Add Todo",
