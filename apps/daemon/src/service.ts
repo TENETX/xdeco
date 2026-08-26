@@ -418,8 +418,6 @@ export class XdecoService {
       });
       await this.codex.request("thread/name/set", { threadId, name: queue.name ?? project.name });
       queue = this.updateQueue(queue.id, { targetThreadId: threadId });
-    } else {
-      await this.codex.resumeThread(threadId);
     }
     const turnId = await this.codex.startTurn({
       threadId,

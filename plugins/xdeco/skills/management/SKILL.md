@@ -17,7 +17,7 @@ Use xdeco tools as the source of truth for project and Todo operations.
 
 ## Decisions
 
-1. Use `open_xdeco` when the user asks to view or manage the visual workspace. It returns a local `url`; use Codex's `open_in_codex` browser action to open that URL in the right panel when available. Otherwise, give the user the returned local link.
+1. Use `open_xdeco` when the user asks to view or manage the visual workspace. The Codex host renders its native xdeco UI resource.
 2. Use `add_todo` for a single explicit Todo, including when the request comes from a conversation unrelated to the destination Project.
 3. Default new Todos to `draft`. Use `ready` only when the user explicitly asks to send, queue, start, or add it to the sending plan.
 4. Default the Todo mode to `default`. Use `plan` when the user explicitly asks to plan, design, or propose an approach before implementation.

@@ -130,10 +130,11 @@ test("dispatches ready Todos one at a time in position order", async () => {
 test("dispatches each Todo with its own Codex collaboration mode", async () => {
   const database = new XdecoDatabase(":memory:");
   let turnParams: any;
+  let resumeCalls = 0;
   const codex = {
     available: async () => true,
     listThreads: async () => [],
-    resumeThread: async () => undefined,
+    resumeThread: async () => { resumeCalls += 1; throw new Error("paginated_threads is not supported yet"); },
     startTurn: async (params: any) => { turnParams = params; return "turn_plan"; },
     waitForTurn: async () => ({ status: "completed", text: "planned", error: null }),
   } as any;
@@ -150,6 +151,7 @@ test("dispatches each Todo with its own Codex collaboration mode", async () => {
   assert.equal(turnParams.permissions, ":workspace");
   assert.equal(turnParams.approvalPolicy, "on-request");
   assert.equal(turnParams.approvalsReviewer, "auto_review");
+  assert.equal(resumeCalls, 0);
   assert.equal(service.getTodo(todo.id).status, "completed");
   database.close();
 });
