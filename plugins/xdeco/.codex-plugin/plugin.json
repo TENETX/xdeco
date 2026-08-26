@@ -1,15 +1,15 @@
 {
   "name": "xdeco",
-  "version": "0.2.0+codex.20260825075636",
-  "description": "Collect Todos by project and send ready work to Codex one item at a time.",
+  "version": "0.2.0+codex.20260826080350",
+  "description": "A project-first Todo queue for Codex conversations.",
   "author": {
     "name": "xdeco contributors"
   },
   "skills": "./skills/",
   "interface": {
     "displayName": "xdeco",
-    "shortDescription": "Manage project Todo queues for Codex.",
-    "longDescription": "Capture Todos from any conversation, organize them by project, and send ready work to each project's Codex task sequentially.",
+    "shortDescription": "Queue Todos across Codex conversations.",
+    "longDescription": "Organize Todos by project and queue, bind each queue to a Codex conversation, and track work from ready to completed.",
     "developerName": "xdeco contributors",
     "category": "Productivity",
     "capabilities": [
