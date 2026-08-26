@@ -934,10 +934,10 @@ var require_codegen = __commonJS({
         return this._leafNode(new Throw(error51));
       }
       // start self-balancing block
-      block(body, nodeCount) {
+      block(body2, nodeCount) {
         this._blockStarts.push(this._nodes.length);
-        if (body)
-          this.code(body).endBlock(nodeCount);
+        if (body2)
+          this.code(body2).endBlock(nodeCount);
         return this;
       }
       // end the current self-balancing block
@@ -2362,15 +2362,15 @@ var require_validate = __commonJS({
       validateFunction(it2, () => (0, boolSchema_1.topBoolOrEmptySchema)(it2));
     }
     exports.validateFunctionCode = validateFunctionCode;
-    function validateFunction({ gen, validateName, schema, schemaEnv, opts }, body) {
+    function validateFunction({ gen, validateName, schema, schemaEnv, opts }, body2) {
       if (opts.code.es5) {
         gen.func(validateName, (0, codegen_1._)`${names_1.default.data}, ${names_1.default.valCxt}`, schemaEnv.$async, () => {
           gen.code((0, codegen_1._)`"use strict"; ${funcSourceUrl(schema, opts)}`);
           destructureValCxtES5(gen, opts);
-          gen.code(body);
+          gen.code(body2);
         });
       } else {
-        gen.func(validateName, (0, codegen_1._)`${names_1.default.data}, ${destructureValCxt(opts)}`, schemaEnv.$async, () => gen.code(funcSourceUrl(schema, opts)).code(body));
+        gen.func(validateName, (0, codegen_1._)`${names_1.default.data}, ${destructureValCxt(opts)}`, schemaEnv.$async, () => gen.code(funcSourceUrl(schema, opts)).code(body2));
       }
     }
     function destructureValCxt(opts) {
@@ -60988,6 +60988,81 @@ var DATABASE_PATH = process.env.XDECO_DATABASE ? resolve(process.env.XDECO_DATAB
 var CAPTURE_MODEL = process.env.XDECO_CAPTURE_MODEL ?? "gpt-5.6-luna";
 var EXECUTION_MODEL = process.env.XDECO_EXECUTION_MODEL ?? "gpt-5.6-terra";
 
+// apps/daemon/src/local-ui.ts
+import { createServer } from "node:http";
+function send(response, status, value) {
+  response.writeHead(status, {
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store"
+  });
+  response.end(JSON.stringify(value));
+}
+async function body(request) {
+  const chunks = [];
+  for await (const chunk of request) chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+  const value = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("\u8BF7\u6C42\u683C\u5F0F\u4E0D\u6B63\u786E");
+  return value;
+}
+var LocalUiServer = class {
+  constructor(html, invoke) {
+    this.html = html;
+    this.invoke = invoke;
+  }
+  html;
+  invoke;
+  server = null;
+  url = null;
+  async ensure() {
+    if (this.url) return this.url;
+    for (let port = 4318; port < 4330; port += 1) {
+      const server2 = createServer((request, response) => void this.handle(request, response));
+      try {
+        await new Promise((resolve3, reject) => {
+          server2.once("error", reject);
+          server2.listen(port, "127.0.0.1", () => {
+            server2.off("error", reject);
+            resolve3();
+          });
+        });
+        this.server = server2;
+        this.url = `http://127.0.0.1:${port}/`;
+        return this.url;
+      } catch {
+        server2.close();
+      }
+    }
+    throw new Error("\u65E0\u6CD5\u542F\u52A8 xdeco \u672C\u5730\u770B\u677F\u670D\u52A1");
+  }
+  async close() {
+    const server2 = this.server;
+    this.server = null;
+    this.url = null;
+    if (!server2) return;
+    await new Promise((resolve3, reject) => server2.close((error51) => error51 ? reject(error51) : resolve3()));
+  }
+  async handle(request, response) {
+    const path = new URL(request.url ?? "/", "http://127.0.0.1").pathname;
+    if (request.method === "GET" && path === "/") {
+      response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+      response.end(this.html);
+      return;
+    }
+    if (request.method === "POST" && path === "/api/tool") {
+      try {
+        const payload = await body(request);
+        if (typeof payload.name !== "string") throw new Error("\u7F3A\u5C11\u5DE5\u5177\u540D\u79F0");
+        const args = payload.args && typeof payload.args === "object" && !Array.isArray(payload.args) ? payload.args : {};
+        send(response, 200, { structuredContent: { result: await this.invoke(payload.name, args) } });
+      } catch (error51) {
+        send(response, 400, { error: error51 instanceof Error ? error51.message : "\u64CD\u4F5C\u672A\u5B8C\u6210" });
+      }
+      return;
+    }
+    send(response, 404, { error: "Not found" });
+  }
+};
+
 // apps/daemon/src/service.ts
 import { randomUUID } from "node:crypto";
 
@@ -63727,7 +63802,7 @@ var XDECO_HTML = String.raw`<!doctype html>
     var icons=${JSON.stringify(LUCIDE_ICONS)};function icon(name){return icons[name]||""}
     function esc(value){return String(value==null?"":value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;")}
     function request(method,params){var id=nextId++;window.parent.postMessage({jsonrpc:"2.0",id:id,method:method,params:params},"*");return new Promise(function(resolve,reject){pending.set(id,{resolve:resolve,reject:reject});setTimeout(function(){if(pending.has(id)){pending.delete(id);reject(new Error("Codex UI bridge 请求超时"))}},180000)})}
-    function callTool(name,args){if(window.openai&&typeof window.openai.callTool==="function")return window.openai.callTool(name,args||{});return request("tools/call",{name:name,arguments:args||{}})}
+    function callTool(name,args){if(window.openai&&typeof window.openai.callTool==="function")return window.openai.callTool(name,args||{});if(location.protocol==="http:"||location.protocol==="https:")return fetch("/api/tool",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name:name,args:args||{}})}).then(function(response){return response.json().then(function(payload){if(!response.ok)throw new Error(payload.error||"工具调用失败");return payload})});return request("tools/call",{name:name,arguments:args||{}})}
     function value(payload){if(!payload)return null;if(payload.structuredContent&&Object.prototype.hasOwnProperty.call(payload.structuredContent,"result"))return payload.structuredContent.result;if(Object.prototype.hasOwnProperty.call(payload,"result"))return payload.result;if(payload.call_tool_result)return value(payload.call_tool_result);if(payload.mcp_tool_result)return value(payload.mcp_tool_result);return null}
     function overview(payload){var data=value(payload)||payload;return data&&Array.isArray(data.projects)&&Array.isArray(data.codexProjects)&&Array.isArray(data.codexThreads)&&Array.isArray(data.todos)?data:null}
     function friendly(error){var message=error&&error.message?error.message:String(error||"操作失败");if(/UNIQUE constraint failed: projects\.name/i.test(message))return"这个共享项目已经关联过了，直接打开已有项目即可";if(/Project not found/i.test(message))return"关联项目已不存在，请刷新后重新关联";if(/Queue not found/i.test(message))return"目标队列已不存在，请刷新后重试";if(/Todo does not have a completion result/i.test(message))return"这个 Todo 还没有结果";if(/thread.*not found|rollout.*not found/i.test(message))return"找不到这个 Codex task";return"操作未完成，请稍后重试"}
@@ -63773,6 +63848,31 @@ var XDECO_HTML = String.raw`<!doctype html>
 var service = new XdecoService();
 var server = new McpServer({ name: "xdeco", version: "0.2.0" });
 var WIDGET_CALLABLE_META = { ui: { visibility: ["app"] }, "openai/widgetAccessible": true };
+var localUi = new LocalUiServer(XDECO_HTML, async (name, args) => {
+  switch (name) {
+    case "get_overview":
+      return service.overview();
+    case "create_project":
+      return service.createProject(args);
+    case "update_project": {
+      if (typeof args.projectId !== "string") throw new Error("\u7F3A\u5C11\u9879\u76EE ID");
+      const { projectId, ...input } = args;
+      return service.updateProject(projectId, input);
+    }
+    case "add_todo":
+      return service.addTodo(args);
+    case "retry_todo": {
+      if (typeof args.todoId !== "string") throw new Error("\u7F3A\u5C11 Todo ID");
+      return service.retryTodo(args.todoId);
+    }
+    case "get_todo_result": {
+      if (typeof args.todoId !== "string") throw new Error("\u7F3A\u5C11 Todo ID");
+      return service.getTodoResult(args.todoId);
+    }
+    default:
+      throw new Error("\u6B64\u64CD\u4F5C\u6682\u4E0D\u652F\u6301\u672C\u5730\u770B\u677F");
+  }
+});
 function result(value) {
   return {
     content: [{ type: "text", text: JSON.stringify(value, null, 2) }],
@@ -63825,14 +63925,8 @@ server.registerTool("open_xdeco", {
   inputSchema: {},
   outputSchema: { result: external_exports.any() },
   annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-  _meta: {
-    ui: { resourceUri: XDECO_URI },
-    "openai/outputTemplate": XDECO_URI,
-    "openai/widgetAccessible": true,
-    "openai/toolInvocation/invoking": "\u6B63\u5728\u6253\u5F00 xdeco\u2026",
-    "openai/toolInvocation/invoked": "xdeco \u5DF2\u6253\u5F00"
-  }
-}, async () => result(await service.overview()));
+  _meta: { ...WIDGET_CALLABLE_META, "openai/toolInvocation/invoking": "\u6B63\u5728\u542F\u52A8 xdeco \u770B\u677F\u2026", "openai/toolInvocation/invoked": "xdeco \u770B\u677F\u5DF2\u5C31\u7EEA" }
+}, async () => result({ url: await localUi.ensure(), overview: await service.overview() }));
 server.registerTool("add_todo", {
   title: "Add Todo",
   description: "Add one Todo to xdeco from any Codex conversation. Use projectId or an exact projectName. Default status is draft; use ready only when the user explicitly wants it queued for sequential sending.",
