@@ -18,6 +18,9 @@ export function publicError(reason: unknown): PublicError {
   }
   if (/Project not found/i.test(raw)) return { code: "project_not_found", message: "关联项目已不存在", recovery: "刷新后重新选择项目。" };
   if (/Queue not found/i.test(raw)) return { code: "queue_not_found", message: "目标队列已不存在", recovery: "刷新后重新选择队列。" };
+  if (/Cannot delete a Queue while a Todo is sending or running/i.test(raw)) {
+    return { code: "queue_running", message: "正在执行的队列不能删除", recovery: "等待当前 Todo 完成后再试。" };
+  }
   if (/Todo not found/i.test(raw)) return { code: "todo_not_found", message: "这个 Todo 已不存在", recovery: "刷新列表后重试。" };
   if (/Queue does not belong/i.test(raw)) return { code: "queue_project_mismatch", message: "这个队列不属于所选项目", recovery: "请把 Todo 拖到同一项目下的队列。" };
   if (/Ready todos must belong/i.test(raw)) return { code: "queue_required", message: "请先选择一个执行队列", recovery: "没有队列时，先在项目中创建队列。" };

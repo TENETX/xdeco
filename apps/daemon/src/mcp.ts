@@ -91,6 +91,39 @@ server.registerTool("add_todo", {
   _meta: WIDGET_CALLABLE_META,
 }, async (input) => result(service.addTodo({ ...input, sourceType: "mcp" })));
 
+server.registerTool("create_current_todo", {
+  title: "Send Todo through Codex",
+  description: "Create one queued Todo and prepare a host-native Codex message. The app must send the returned prompt with ui/message, then call register_current_todo.",
+  inputSchema: {
+    title: z.string().min(1),
+    description: z.string().optional(),
+    projectId: z.string().min(1),
+    queueId: z.string().nullable().optional(),
+    mode: z.enum(TODO_MODES).optional(),
+  },
+  outputSchema: { result: z.any() },
+  annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  _meta: WIDGET_CALLABLE_META,
+}, async (input) => result(service.createCurrentTodo({ ...input, sourceType: "mcp" })));
+
+server.registerTool("register_current_todo", {
+  title: "Register visible Todo turn",
+  description: "Bind a Todo to the visible Codex turn created by the app host and begin completion tracking.",
+  inputSchema: { todoId: z.string().min(1), marker: z.string().min(1) },
+  outputSchema: { result: z.any() },
+  annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  _meta: WIDGET_CALLABLE_META,
+}, async (input) => result(await service.registerCurrentTodo(input.todoId, input.marker)));
+
+server.registerTool("prepare_current_todo", {
+  title: "Prepare queued Todo for Codex",
+  description: "Prepare an existing queued Todo for host-native delivery through ui/message.",
+  inputSchema: { todoId: z.string().min(1) },
+  outputSchema: { result: z.any() },
+  annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  _meta: WIDGET_CALLABLE_META,
+}, async (input) => result(service.prepareCurrentTodo(input.todoId)));
+
 server.registerTool("capture_todos", {
   title: "Capture Todos",
   description: "Turn text or a screenshot into draft Todos. Captured items are never sent automatically.",
@@ -181,4 +214,7 @@ server.registerTool("get_todo_result", {
   _meta: WIDGET_CALLABLE_META,
 }, async (input) => result(await service.getTodoResult(input.todoId)));
 
-await server.connect(new StdioServerTransport());
+void server.connect(new StdioServerTransport()).catch((error) => {
+  process.stderr.write(`[xdeco] MCP server failed: ${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
+  process.exitCode = 1;
+});

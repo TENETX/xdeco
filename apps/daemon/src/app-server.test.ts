@@ -2,6 +2,21 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { CodexAppServer } from "./app-server.js";
 
+test("does not resume a thread that was started by the same app-server client", async () => {
+  const codex = new CodexAppServer();
+  const methods: string[] = [];
+  codex.request = (async (method: string) => {
+    methods.push(method);
+    if (method === "thread/start") return { thread: { id: "thread_started" } };
+    return {};
+  }) as CodexAppServer["request"];
+
+  const threadId = await codex.startThread({ cwd: "/tmp/project" });
+  await codex.resumeThread(threadId);
+
+  assert.deepEqual(methods, ["thread/start"]);
+});
+
 test("readTurnResult selects the final answer and collects produced artifacts", async () => {
   const codex = new CodexAppServer();
   codex.request = (async (method: string, params: Record<string, unknown>) => {

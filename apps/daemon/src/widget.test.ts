@@ -47,9 +47,12 @@ test("widget adds tasks through a searchable project-grouped picker", () => {
 });
 
 test("widget keeps only the minimal association and execution flow", () => {
-  assert.match(XDECO_HTML, /id="todoMode"/);
-  assert.match(XDECO_HTML, /callTool\("add_todo",\{title:title,projectId:binding\.id,mode:mode,status:"ready"\}\)/);
-  assert.match(XDECO_HTML, /modeLabels/);
+  assert.doesNotMatch(XDECO_HTML, /id="todoMode"/);
+  assert.match(XDECO_HTML, /callTool\("create_current_todo",\{title:title,projectId:binding\.id\}\)/);
+  assert.match(XDECO_HTML, /sendHostMessage\(prepared\.prompt\)/);
+  assert.match(XDECO_HTML, /callTool\("register_current_todo"/);
+  assert.match(XDECO_HTML, /sendFollowUpMessage/);
+  assert.match(XDECO_HTML, /ui\/message/);
   assert.match(XDECO_HTML, /callTool\("retry_todo"/);
   assert.doesNotMatch(XDECO_HTML, /requestDisplayMode/);
   assert.doesNotMatch(XDECO_HTML, /start_project_queue/);

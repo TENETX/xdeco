@@ -1,12 +1,102 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { XdecoDatabase } from "./database.js";
-import { XdecoService } from "./service.js";
+import { todoTurnInput, visibleTodoInput, XdecoService } from "./service.js";
 
 const unavailableCodex = { available: async () => false, listThreads: async () => [] } as any;
 const emptyCatalog = { list: async () => [] };
 
 function tick(): Promise<void> { return new Promise((resolve) => setImmediate(resolve)); }
+
+test("renders cross-task Todo input as a native Codex delegation", () => {
+  assert.equal(todoTurnInput("Ship <safe> & verified", "thread_source", "thread_target"), [
+    "<codex_delegation>",
+    "  <source_thread_id>thread_source</source_thread_id>",
+    "  <input>Ship &lt;safe&gt; &amp; verified</input>",
+    "</codex_delegation>",
+  ].join("\n"));
+});
+
+test("keeps same-task Todo input as a normal user message", () => {
+  assert.equal(todoTurnInput("Ship it", "thread_target", "thread_target"), "Ship it");
+  assert.equal(todoTurnInput("Ship it", null, "thread_target"), "Ship it");
+});
+
+test("keeps the xdeco marker outside the visible Todo query", () => {
+  assert.equal(
+    visibleTodoInput("Ship it", "xdeco:todo=todo_1;run=run_1"),
+    "Ship it\n<!-- xdeco:todo=todo_1;run=run_1 -->",
+  );
+});
+
+test("registers and completes a host-visible Todo turn", async () => {
+  const database = new XdecoDatabase(":memory:");
+  const codex = {
+    findTurnContainingUserText: async (threadId: string, marker: string) => {
+      assert.equal(threadId, "thread_target");
+      assert.match(marker, /^xdeco:todo=/);
+      return { id: "turn_visible", status: "inProgress" };
+    },
+    readFinishedTurn: async () => ({ status: "completed", text: "visible answer", error: null }),
+  } as any;
+  try {
+    const service = new XdecoService(database, codex, emptyCatalog, emptyCatalog, "thread_source");
+    const project = service.createProject({
+      name: "Visible",
+      rootPath: "/workspace/visible",
+      targetThreadId: "thread_target",
+      autoDispatch: true,
+    });
+    const prepared = service.createCurrentTodo({ title: "Ship it", projectId: project.id });
+
+    assert.equal(prepared.relayed, true);
+    assert.equal(prepared.targetThreadId, "thread_target");
+    assert.match(prepared.prompt, /send_message_to_thread/);
+    assert.match(prepared.payload, /^Ship it\n<!-- xdeco:todo=/);
+    assert.doesNotMatch(prepared.payload, /codex_delegation/);
+    assert.match(prepared.payload, /<!-- xdeco:todo=/);
+    assert.equal(service.getProject(project.id).autoDispatch, false);
+
+    const registered = await service.registerCurrentTodo(prepared.todo.id, prepared.marker);
+    assert.equal(registered.run.threadId, "thread_target");
+    assert.equal(registered.run.turnId, "turn_visible");
+    await tick();
+    assert.equal(service.getTodo(prepared.todo.id).status, "completed");
+    assert.equal(service.getTodo(prepared.todo.id).completionSummary, "visible answer");
+  } finally {
+    database.close();
+  }
+});
+
+test("waits for a transient interrupted visible turn to settle", async () => {
+  const database = new XdecoDatabase(":memory:");
+  let reads = 0;
+  const codex = {
+    findTurnContainingUserText: async () => ({ id: "turn_settling", status: "inProgress" }),
+    readFinishedTurn: async () => {
+      reads += 1;
+      return reads === 1
+        ? { status: "interrupted", text: "", error: "Codex turn interrupted" }
+        : { status: "completed", text: "settled answer", error: null };
+    },
+  } as any;
+  try {
+    const service = new XdecoService(database, codex, emptyCatalog, emptyCatalog, "thread_source");
+    const project = service.createProject({
+      name: "Settling",
+      rootPath: "/workspace/settling",
+      targetThreadId: "thread_target",
+      autoDispatch: false,
+    });
+    const prepared = service.createCurrentTodo({ title: "Ship it", projectId: project.id });
+    await service.registerCurrentTodo(prepared.todo.id, prepared.marker);
+    await new Promise((resolve) => setTimeout(resolve, 650));
+    assert.equal(service.getTodo(prepared.todo.id).status, "completed");
+    assert.equal(service.getTodo(prepared.todo.id).completionSummary, "settled answer");
+  } finally {
+    database.close();
+  }
+});
 
 test("reuses the Codex catalog during rapid overview polling", async () => {
   const database = new XdecoDatabase(":memory:");
@@ -130,11 +220,14 @@ test("dispatches ready Todos one at a time in position order", async () => {
 test("dispatches each Todo with its own Codex collaboration mode", async () => {
   const database = new XdecoDatabase(":memory:");
   let turnParams: any;
+  let replacementParams: any;
   let resumeCalls = 0;
   const codex = {
     available: async () => true,
     listThreads: async () => [],
     resumeThread: async () => { resumeCalls += 1; throw new Error("paginated_threads is not supported yet"); },
+    startThread: async (params: any) => { replacementParams = params; return "thread_replacement"; },
+    request: async () => undefined,
     startTurn: async (params: any) => { turnParams = params; return "turn_plan"; },
     waitForTurn: async () => ({ status: "completed", text: "planned", error: null }),
   } as any;
@@ -151,7 +244,10 @@ test("dispatches each Todo with its own Codex collaboration mode", async () => {
   assert.equal(turnParams.permissions, ":workspace");
   assert.equal(turnParams.approvalPolicy, "on-request");
   assert.equal(turnParams.approvalsReviewer, "auto_review");
-  assert.equal(resumeCalls, 0);
+  assert.equal(turnParams.threadId, "thread_replacement");
+  assert.equal(replacementParams.serviceName, "xdeco_dispatch_recovery");
+  assert.equal(resumeCalls, 1);
+  assert.equal(service.listQueues(project.id)[0]?.targetThreadId, "thread_replacement");
   assert.equal(service.getTodo(todo.id).status, "completed");
   database.close();
 });

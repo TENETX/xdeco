@@ -1,30 +1,28 @@
 ---
 name: management
-description: Manage xdeco projects and Todo queues. Use when the user asks to remember, add, queue, send, retry, complete, archive, or inspect a Todo or project.
+description: Manage xdeco projects, Codex-task queues, and Todos. Use when the user asks to open xdeco, add or send a Todo, manage a queue, retry work, or inspect completed results.
 ---
 
 # xdeco management
 
-Use xdeco tools as the source of truth for project and Todo operations.
+Use xdeco tools as the source of truth for projects, queues, Todos, and completion results.
 
 ## Concepts
 
-- A **Project** groups Todos and points to exactly one destination Codex task. If unbound, the first execution creates a task and permanently binds it.
-- A Project sends ready Todos sequentially. Only one Todo per Project may be sending or running at a time.
-- Each Todo owns its Codex collaboration mode: `default` executes directly and `plan` plans first. Modes do not belong to Projects.
+- A **Project** is the outer grouping and maps to one local Codex project root.
+- A Project can contain several **Queues**. Each Queue is bound to exactly one Codex task and executes its Todos sequentially.
 - Todo states are `draft`, `ready`, `sending`, `running`, `completed`, `failed`, and `archived`.
-- `sending` and `running` are dispatcher-owned states. Do not set them directly.
+- The app UI sends execution messages through the Codex host. The daemon records and watches the resulting visible turn; it must not create a second background turn for the same Todo.
 
 ## Decisions
 
-1. Use `open_xdeco` when the user asks to view or manage the visual workspace. The Codex host renders its native xdeco UI resource.
-2. Use `add_todo` for a single explicit Todo, including when the request comes from a conversation unrelated to the destination Project.
-3. Default new Todos to `draft`. Use `ready` only when the user explicitly asks to send, queue, start, or add it to the sending plan.
-4. Default the Todo mode to `default`. Use `plan` when the user explicitly asks to plan, design, or propose an approach before implementation.
-5. Resolve a Project using an explicit ID or exact name. If several projects are plausible, ask the user instead of guessing.
-6. Use `capture_todos` when text or a screenshot should be split or rewritten into multiple Todos. Captured Todos remain drafts.
-7. Moving a Todo to `ready` enters its Project queue. If automatic dispatch is enabled, xdeco starts it; otherwise use `start_project_queue` when the user asks to begin.
-8. A failed Todo pauses later ready Todos in that Project. Use `retry_todo` only when the user asks to retry or resume that failure.
-9. Use `archived` for items the user no longer wants in normal views. Archiving does not delete project files or Codex history.
+1. Use `open_xdeco` when the user asks to open, show, or manage the visual xdeco workspace.
+2. Use `add_todo` for saved drafts. Use `create_current_todo` when the Todo should be sent to Codex now.
+3. `create_current_todo` returns a `payload`, `targetThreadId`, `todo`, and `marker`. When working without the visual app, deliver `payload` unchanged with the Codex `send_message_to_thread` tool, then call `register_current_todo` with the returned Todo ID and marker.
+4. When the xdeco UI sends a relay instruction, call `send_message_to_thread` exactly once with the requested target task and the payload unchanged. Do not execute the payload in the relay task and do not add commentary to the payload.
+5. Use `capture_todos` when text or a screenshot should be split or rewritten into draft Todos.
+6. Resolve Projects and Queues by explicit ID or exact name. If several are plausible, ask instead of guessing.
+7. Use `retry_todo` only when the user asks to retry a failed Todo. Host-native retries must be prepared and registered just like first execution.
+8. Use `archived` for items the user no longer wants in normal views. Archiving does not delete project files or Codex history.
 
-Keep confirmations short: include the Todo title, Project name when assigned, and whether it was saved as a draft or entered the send queue.
+Keep confirmations short: include the Todo title, Project or Queue when useful, and whether it was saved or sent.

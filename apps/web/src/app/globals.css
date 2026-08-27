@@ -195,7 +195,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .textButton:hover, .plainAction:hover, .resultLink:hover, .sheetTextButton:hover { background: var(--fill); }
 .textButton.active { color: var(--secondary-label); }
 
-.errorBanner {
+.errorBanner, .successBanner {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
@@ -208,8 +208,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   border-radius: 12px;
   animation: noticeEnter 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
-.errorBanner button { display: grid; width: 34px; height: 34px; padding: 0; place-items: center; color: var(--label); background: transparent; border: 0; border-radius: 50%; cursor: pointer; }
-.errorBanner button:hover { background: rgba(0, 0, 0, 0.07); }
+.successBanner { background: #f0f0f0; }
+.errorBanner button, .successBanner button { display: grid; width: 34px; height: 34px; padding: 0; place-items: center; color: var(--label); background: transparent; border: 0; border-radius: 50%; cursor: pointer; }
+.errorBanner button:hover, .successBanner button:hover { background: rgba(0, 0, 0, 0.07); }
 
 .xdecoSelectTrigger {
   min-width: 0;
@@ -300,51 +301,45 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .resultLink { min-height: 34px; padding-inline: 8px; white-space: nowrap; }
 .modePicker, .statusPicker { display: flex; align-items: center; }
 
-.workflowSurface { display: grid; gap: 28px; }
+.workflowSurface { display: grid; gap: 24px; }
 .workflowHeader { display: flex; align-items: center; justify-content: space-between; min-height: 22px; margin: 0 3px 8px; }
 .workflowHeader > div { display: flex; align-items: baseline; gap: 8px; }
 .workflowHeader h2 { margin: 0; color: var(--label); font-size: 13px; font-weight: 680; letter-spacing: -0.012em; }
 .workflowHeader span { color: var(--secondary-label); font-size: 11px; }
-.queueLanes { display: grid; gap: 18px; }
-.projectQueueGroup { display: grid; gap: 8px; }
-.queueLane { position: relative; min-width: 0; padding: 10px 14px 12px; background: var(--group-bg); border-radius: 14px; transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms ease; }
-.queueLane:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.055); }
-.queueLaneHeader { display: flex; min-height: 24px; align-items: center; gap: 7px; color: var(--secondary-label); font-size: 12px; }
-.queueLaneHeader strong { min-width: 0; overflow: hidden; color: var(--label); font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
-.queueLaneHeader > span { margin-left: auto; color: var(--tertiary); font-size: 10px; font-variant-numeric: tabular-nums; }
-.queueProject { display: flex; align-items: center; justify-content: space-between; margin: 0 3px 2px; color: var(--secondary-label); font-size: 11px; }
-.queueProject span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.queueProject em { font-style: normal; font-variant-numeric: tabular-nums; }
-.train { position: relative; display: flex; min-height: 112px; align-items: center; margin-top: -56px; padding: 60px 0 4px; overflow-x: auto; scrollbar-width: none; }
-.train.empty { min-height: 48px; margin-top: 0; padding: 2px 0; overflow: visible; }
-.train::-webkit-scrollbar { display: none; }
-.trainHead, .queueCar { position: relative; z-index: 2; display: grid; flex: 0 0 auto; place-items: center; border: 0; }
-.trainHead { width: 42px; height: 42px; overflow: visible; color: #fff; background: #161616; border-radius: 12px; }
-.trainHead.running { box-shadow: 0 5px 16px rgba(0, 0, 0, 0.22); }
-.trainHead.running::after { position: absolute; inset: 0; overflow: hidden; content: ""; background: linear-gradient(105deg, transparent 22%, rgba(255, 255, 255, 0.72) 48%, transparent 74%); border-radius: inherit; transform: translateX(-140%); animation: engineShine 2.2s cubic-bezier(0.22, 1, 0.36, 1) infinite; }
-.trainHead.idle { color: #6d6d6d; background: #ececec; box-shadow: none; }
-.trainUnit { display: flex; align-items: center; flex: 0 0 auto; }
-.trainCoupler { position: relative; z-index: 1; width: 6px; height: 3px; flex: 0 0 auto; background: #9d9d9d; }
-.trainCoupler.active { background: #5d5d5d; }
-.queueCar { grid-template-columns: 13px auto; width: 48px; height: 34px; padding: 0 7px; gap: 4px; color: #303030; background: #e5e5e5; border-radius: 9px; cursor: grab; font-size: 11px; font-variant-numeric: tabular-nums; transition: color 150ms ease, background-color 150ms ease, transform 120ms ease, box-shadow 150ms ease; }
-.queueCar:hover { color: #fff; background: #252525; box-shadow: 0 5px 14px rgba(0, 0, 0, 0.16); transform: translateY(-2px); }
-.queueCar:active { cursor: grabbing; transform: scale(0.96); }
-.queueCar svg { color: currentColor; }
+.queueLanes { display: grid; gap: 12px; }
+.projectQueueGroup { display: grid; gap: 0; padding: 5px 7px; background: rgba(255, 255, 255, 0.72); border-radius: 15px; }
+.queueLane { position: relative; display: grid; grid-template-columns: minmax(150px, 220px) minmax(0, 1fr); min-width: 0; min-height: 56px; padding: 7px 9px; align-items: center; gap: 12px; border-radius: 10px; transition: background-color 160ms ease; }
+.queueLane + .queueLane { border-top: 1px solid var(--separator); }
+.queueLane:hover, .queueLane:focus-within { background: rgba(0, 0, 0, 0.024); }
+.queueLaneHeader { display: flex; min-width: 0; min-height: 34px; align-items: center; gap: 7px; color: var(--secondary-label); font-size: 12px; }
+.queueThreadLink { display: flex; min-width: 0; align-items: center; gap: 7px; color: var(--secondary-label); border-radius: 7px; text-decoration: none; }
+.queueThreadLink strong { min-width: 0; overflow: hidden; color: var(--label); font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.queueCount { margin-left: auto; color: var(--tertiary); font-size: 10px; font-variant-numeric: tabular-nums; }
+.queueDeleteButton { display: grid; width: 26px; height: 26px; padding: 0; place-items: center; color: var(--tertiary); background: rgba(0, 0, 0, 0.025); border: 0; border-radius: 8px; cursor: pointer; opacity: 1; transition: color 140ms ease, background-color 140ms ease, transform 160ms cubic-bezier(0.22, 1, 0.36, 1); }
+.queueDeleteButton:hover { color: #b42318; background: rgba(180, 35, 24, 0.08); }
+.queueDeleteButton:disabled { color: var(--tertiary); cursor: not-allowed; }
+.queueDeleteButton:active { transform: scale(0.94); }
+.queueProject { display: flex; align-items: center; justify-content: space-between; min-height: 28px; margin: 0 3px 2px; color: var(--secondary-label); font-size: 11px; }
+.queueProject span { overflow: hidden; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.queueProject em { color: var(--tertiary); font-size: 10px; font-style: normal; font-variant-numeric: tabular-nums; }
+.queueTrack { display: flex; min-width: 0; min-height: 34px; align-items: center; overflow-x: auto; scrollbar-width: none; }
+.queueTrack::-webkit-scrollbar { display: none; }
+.queueCard { position: relative; z-index: 2; display: grid; width: 34px; height: 34px; flex: 0 0 auto; padding: 0; place-items: center; overflow: visible; color: #464646; background: #e7e7e7; border: 0; border-radius: 9px; cursor: grab; font-size: 11px; font-variant-numeric: tabular-nums; transition: color 150ms ease, background-color 150ms ease, transform 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 150ms ease; }
+.queueCard > span:first-child { display: grid; place-items: center; }
+.queueCard.queued { background: #e7e7e7; }
+.queueCard.running { color: #fff; background: #171717; box-shadow: 0 5px 14px rgba(0, 0, 0, 0.16); animation: queueRunning 1.8s ease-in-out infinite; }
+.queueCard:hover, .queueCard:focus-visible { color: #fff; background: #343434; box-shadow: 0 5px 14px rgba(0, 0, 0, 0.14); transform: translateY(-2px); }
+.queueCard:active { cursor: grabbing; transform: scale(0.94); }
 .queueTooltip { position: absolute; z-index: 8; left: 50%; bottom: calc(100% + 10px); display: none; min-width: 160px; max-width: 250px; padding: 9px 10px; color: #fff; background: #171717; border-radius: 10px; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.2); pointer-events: none; text-align: left; transform: translateX(-50%); }
 .queueTooltip::after { position: absolute; top: 100%; left: 50%; width: 8px; height: 8px; content: ""; background: #171717; transform: translate(-50%, -4px) rotate(45deg); }
-.trainHead .queueTooltip { left: 0; transform: none; }
-.trainHead .queueTooltip::after { left: 22px; }
 .queueTooltip strong, .queueTooltip small { display: block; }
 .queueTooltip strong { overflow-wrap: anywhere; font-size: 11px; font-weight: 650; line-height: 1.35; }
 .queueTooltip small { margin-top: 3px; color: #bdbdbd; font-size: 9px; line-height: 1.3; }
-.trainHead:hover .queueTooltip, .trainHead:focus-within .queueTooltip { display: block; animation: fadeIn 150ms ease-out; }
-.queueCar:hover .queueTooltip, .queueCar:focus-visible .queueTooltip { display: block; animation: tooltipIn 150ms ease-out; }
-.queueDropSlot { position: relative; z-index: 3; width: 14px; height: 42px; flex: 0 0 auto; border-radius: 7px; transition: background-color 140ms ease; }
-.queueDropSlot.active { background: rgba(0, 0, 0, 0.09); }
-.queueDropSlot.active::after { position: absolute; inset: 7px 6px; content: ""; background: #181818; border-radius: 3px; animation: slotReveal 160ms cubic-bezier(0.22, 1, 0.36, 1); }
-.queueDropSlot.empty { display: grid; width: 92px; height: 34px; margin-left: 3px; place-items: center; color: var(--secondary-label); background: rgba(0, 0, 0, 0.035); border: 1px dashed #c4c4c6; font-size: 10px; }
-.queueDropSlot.empty.active { color: var(--label); background: #ededed; border-color: #8d8d8d; }
-.queueDropSlot.empty.active::after { display: none; }
+.queueCard:hover .queueTooltip, .queueCard:focus-visible .queueTooltip { display: block; animation: tooltipIn 150ms ease-out; }
+.queueDropSlot { width: 8px; height: 34px; flex: 0 0 auto; border: 1px dashed transparent; border-radius: 9px; transition: width 160ms cubic-bezier(0.22, 1, 0.36, 1), background-color 140ms ease, border-color 140ms ease; }
+.queueDropSlot.active { width: 34px; background: rgba(0, 0, 0, 0.028); border-color: #9d9d9d; animation: slotReveal 160ms cubic-bezier(0.22, 1, 0.36, 1); }
+.queueDropSlot.empty { display: grid; width: 66px; height: 34px; place-items: center; color: var(--secondary-label); background: rgba(0, 0, 0, 0.018); border-color: #c9c9cb; font-size: 10px; }
+.queueDropSlot.empty.active { width: 66px; color: var(--label); background: #f2f2f2; border-color: #8d8d8d; }
 .queueHistoryButton { display: inline-flex; width: 28px; height: 28px; flex: 0 0 auto; align-items: center; justify-content: center; gap: 3px; margin-left: 6px; color: var(--secondary-label); background: transparent; border: 0; border-radius: 8px; cursor: pointer; opacity: 0; pointer-events: none; transition: opacity 140ms ease, background-color 140ms ease; }
 .queueHistoryButton span { font-size: 10px; font-variant-numeric: tabular-nums; }
 .queueHistoryButton:hover { color: var(--label); background: var(--fill); }
@@ -355,16 +350,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 .todoPool { min-width: 0; }
 .poolList { overflow: hidden; background: var(--group-bg); border-radius: 14px; }
-.poolTodo { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; min-height: 66px; margin-left: 12px; padding: 10px 12px 10px 0; gap: 8px; border-bottom: 1px solid var(--separator); cursor: grab; transition: background-color 160ms ease, transform 160ms cubic-bezier(0.22, 1, 0.36, 1); }
-.poolTodo:hover { background: rgba(0, 0, 0, 0.018); transform: translateX(2px); }
+.poolTodo { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; min-height: 56px; padding: 8px 12px; gap: 10px; border-bottom: 1px solid var(--separator); cursor: grab; transition: background-color 160ms ease, transform 160ms cubic-bezier(0.22, 1, 0.36, 1); }
+.poolTodo:hover { background: rgba(0, 0, 0, 0.018); }
 .poolTodo:last-child { border-bottom: 0; }
 .poolTodo:active { cursor: grabbing; }
 .poolTodo.failed { background: #fafafa; }
-.poolGrip { color: #a2a2a2; }
 .poolCopy { min-width: 0; }
 .poolCopy h3 { margin: 0; overflow-wrap: anywhere; font-size: 14px; font-weight: 610; line-height: 1.35; letter-spacing: -0.008em; }
-.poolCopy p { max-width: 72ch; margin: 3px 0 0; color: var(--secondary-label); font-size: 11px; line-height: 1.45; white-space: pre-wrap; }
-.poolCopy .todoError { color: #2b2b2b; font-weight: 600; }
+.poolMeta { display: flex; min-width: 0; align-items: center; gap: 8px; margin-top: 3px; color: var(--secondary-label); font-size: 11px; line-height: 1.35; }
+.poolDescription, .poolCopy .todoError { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.poolCopy .todoError { display: inline-flex; align-items: center; gap: 5px; color: #555; font-weight: 560; }
+.poolCopy .todoError svg { flex: 0 0 auto; }
+.poolMeta .projectName { flex: 0 0 auto; margin-top: 0; }
 .poolActions { display: flex; align-items: center; gap: 4px; }
 .queueTodoButton { display: grid; width: 34px; height: 34px; padding: 0; place-items: center; color: var(--label); background: transparent; border: 0; border-radius: 9px; cursor: pointer; transition: background-color 140ms ease, transform 100ms ease; }
 .queueTodoButton:hover { background: var(--fill); }
@@ -451,6 +448,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .formGroup .xdecoSelectTrigger.row { width: 100%; }
 
 .composerBackdrop { align-items: center; }
+.confirmBackdrop { z-index: 80; align-items: center; }
+.confirmDialog { width: min(360px, 100%); padding: 22px; background: var(--system-bg); border-radius: 20px; box-shadow: var(--shadow-float); text-align: center; animation: sheetUp 240ms cubic-bezier(0.22, 1, 0.36, 1); }
+.confirmIcon { display: grid; width: 42px; height: 42px; margin: 0 auto 12px; place-items: center; color: #b42318; background: rgba(180, 35, 24, 0.08); border-radius: 13px; }
+.confirmDialog h2 { margin: 0; color: var(--label); font-size: 17px; font-weight: 680; letter-spacing: -0.015em; }
+.confirmDialog p { margin: 8px 0 18px; color: var(--secondary-label); font-size: 12px; line-height: 1.55; }
+.confirmActions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.confirmActions > button { min-height: 40px; justify-content: center; }
+.dangerButton { display: inline-flex; align-items: center; justify-content: center; padding: 0 15px; gap: 6px; color: #fff; background: #b42318; border: 0; border-radius: 11px; cursor: pointer; font-size: 13px; font-weight: 650; transition: background-color 140ms ease, transform 140ms ease, opacity 140ms ease; }
+.dangerButton:hover { background: #921d14; }
+.dangerButton:active { transform: scale(0.98); }
+.dangerButton:disabled { cursor: default; opacity: 0.5; }
 .todoComposerSheet {
   width: min(640px, 100%);
   max-height: min(760px, calc(100vh - 36px));
@@ -521,13 +529,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 @keyframes shimmer { to { background-position-x: -200%; } }
 @keyframes fadeIn { from { opacity: 0; } }
 @keyframes sheetUp { from { transform: translateY(26px); opacity: 0.7; } }
-@keyframes engineShine { 0%, 45% { transform: translateX(-140%); } 72%, 100% { transform: translateX(140%); } }
 @keyframes tooltipIn { from { opacity: 0; transform: translate(-50%, 4px); } }
 @keyframes slotReveal { from { opacity: 0; transform: scaleY(0.35); } }
 @keyframes contentEnter { from { opacity: 0; transform: translateY(8px); } }
 @keyframes timelineReveal { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes detailEnter { from { opacity: 0; transform: translateX(8px); } }
 @keyframes noticeEnter { from { opacity: 0; transform: translateY(-5px); } }
+@keyframes queueRunning { 0%, 100% { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); } 50% { box-shadow: 0 7px 18px rgba(0, 0, 0, 0.24); } }
 
 @media (max-width: 700px) {
   .iosNav { padding: 8px 10px; }
@@ -549,11 +557,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .todoRow { grid-template-columns: 30px minmax(0, 1fr); }
   .todoControls { grid-column: 2; justify-content: flex-end; margin-top: 3px; }
   .workflowSurface { gap: 24px; }
-  .queueLane { padding-inline: 10px; }
-  .train, .train.empty { min-height: 48px; margin-top: 0; padding: 2px 0; }
+  .queueLane { grid-template-columns: minmax(0, 1fr); min-height: 0; padding: 8px 10px; gap: 3px; }
+  .queueTrack { min-height: 36px; padding-left: 20px; }
   .queueTooltip { display: none !important; }
-  .poolTodo { grid-template-columns: 20px minmax(0, 1fr); }
-  .poolActions { grid-column: 2; justify-content: flex-end; }
+  .poolTodo { grid-template-columns: minmax(0, 1fr) auto; }
+  .poolActions { justify-content: flex-end; }
   .projectSheet { padding-inline: 12px; border-radius: 20px; }
   .composerBackdrop { align-items: end; padding: 0; }
   .todoComposerSheet { max-height: calc(100vh - 24px); padding: 8px 14px max(20px, env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; }

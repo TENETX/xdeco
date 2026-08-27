@@ -17,3 +17,11 @@ test("does not expose unknown internal failures", () => {
     recovery: "请稍后重试；如果仍失败，请刷新页面。",
   });
 });
+
+test("explains why an active queue cannot be deleted", () => {
+  assert.deepEqual(publicError(new Error("Cannot delete a Queue while a Todo is sending or running")), {
+    code: "queue_running",
+    message: "正在执行的队列不能删除",
+    recovery: "等待当前 Todo 完成后再试。",
+  });
+});

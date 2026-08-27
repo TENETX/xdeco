@@ -9,7 +9,7 @@
     "dev:web": "concurrently -n api,web -c cyan,magenta \"pnpm --filter @xdeco/daemon dev:http\" \"pnpm --filter @xdeco/web dev\"",
     "start:web": "concurrently -n api,web -c cyan,magenta \"pnpm --filter @xdeco/daemon start:http\" \"pnpm --filter @xdeco/web start\"",
     "build": "pnpm -r build",
-    "build:plugin": "pnpm --filter @xdeco/daemon build:widget && esbuild apps/daemon/src/mcp.ts --bundle --platform=node --format=esm --target=node22 --outfile=plugins/xdeco/scripts/mcp.mjs",
+    "build:plugin": "pnpm --filter @xdeco/daemon build:widget && esbuild apps/daemon/src/mcp.ts --bundle --platform=node --format=cjs --target=node22 --outfile=plugins/xdeco/scripts/mcp.cjs",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm --filter @xdeco/daemon test",
     "validate:plugin": "bash scripts/validate-plugin.sh"

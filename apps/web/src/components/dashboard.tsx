@@ -7,7 +7,6 @@ import {
   CirclePlus,
   CircleAlert,
   Folder,
-  GripVertical,
   History,
   Inbox,
   ListTodo,
@@ -17,10 +16,10 @@ import {
   RefreshCw,
   Search,
   MessageSquareText,
-  Zap,
+  Trash2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type CodexThread,
   type Overview,
@@ -72,8 +71,10 @@ export function Dashboard() {
   const [historyQueueId, setHistoryQueueId] = useState<string | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [queueSheetOpen, setQueueSheetOpen] = useState(false);
+  const [deletingQueue, setDeletingQueue] = useState<Queue | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [mutatingId, setMutatingId] = useState<string | null>(null);
   const refreshPromise = useRef<Promise<void> | null>(null);
@@ -96,6 +97,12 @@ export function Dashboard() {
   }, []);
 
   useEffect(() => { void refresh(); }, [refresh]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(""), 12_000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
 
   const hasActiveTodos = Boolean(data?.todos.some((todo) => todo.status === "sending" || todo.status === "running"));
   useEffect(() => {
@@ -160,6 +167,19 @@ export function Dashboard() {
 
   const moveToPool = (todo: Todo) => setStatus(todo, "draft");
 
+  const removeQueue = (queue: Queue) => runMutation(`queue:${queue.id}`, async () => {
+    await api<Queue>(`/api/queues/${queue.id}`, { method: "DELETE" });
+    setData((current) => current ? {
+      ...current,
+      queues: current.queues.filter((candidate) => candidate.id !== queue.id),
+      todos: current.todos.map((todo) => todo.queueId === queue.id
+        ? { ...todo, queueId: null, status: todo.status === "ready" ? "draft" as const : todo.status }
+        : todo),
+    } : current);
+    if (historyQueueId === queue.id) setHistoryQueueId(null);
+    setDeletingQueue(null);
+  });
+
   const activeProjectCount = (id: string | null) => (data?.todos ?? []).filter(
     (todo) => todo.projectId === id && !["completed", "archived"].includes(todo.status),
   ).length;
@@ -198,6 +218,7 @@ export function Dashboard() {
 
       <section className="iosContent">
         {error ? <div className="errorBanner" role="alert"><CircleAlert size={17} /><span>{error}</span><button aria-label="关闭错误提示" onClick={() => setError("")}><X size={15} /></button></div> : null}
+        {notice ? <div className="successBanner" role="status"><CheckCircle2 size={17} /><span>{notice}</span><button aria-label="关闭发送提示" onClick={() => setNotice("")}><X size={15} /></button></div> : null}
 
         <div className="pageHeading">
           <div className="pageTitle">
@@ -223,6 +244,7 @@ export function Dashboard() {
               onQueue={queueTodo}
               onMoveToPool={moveToPool}
               onHistory={(queueId) => setHistoryQueueId(queueId)}
+              onDelete={setDeletingQueue}
             />
             <TodoPool
               todos={poolTodos}
@@ -259,6 +281,12 @@ export function Dashboard() {
             updateTodo(todo);
             setProjectId(todo.projectId);
             setComposerOpen(false);
+            if (todo.status === "ready" && todo.queueId) {
+              const destination = (data?.queues ?? []).find((queue) => queue.id === todo.queueId);
+              setNotice(`已进入后台执行；结果会保存在「${destination ? queueLabel(destination, data?.codexThreads ?? []) : "Codex"}」队列历史`);
+            } else {
+              setNotice("已保存，尚未发送");
+            }
             void refresh(true);
           }}
           onError={setError}
@@ -267,6 +295,15 @@ export function Dashboard() {
       {sheetOpen ? <ProjectSheet data={data} onClose={() => setSheetOpen(false)} onCreated={async (created) => { await refresh(true); setProjectId(created.id); setSheetOpen(false); }} onError={setError} /> : null}
       {queueSheetOpen && project ? <QueueSheet project={project} threads={data?.codexThreads ?? []} onClose={() => setQueueSheetOpen(false)} onCreated={async () => { await refresh(true); setQueueSheetOpen(false); }} onError={setError} /> : null}
       {historyQueueId ? <CompletionArchive todos={todos.filter((todo) => todo.queueId === historyQueueId && todo.status === "completed").sort((a, b) => (b.completedAt ?? b.updatedAt).localeCompare(a.completedAt ?? a.updatedAt))} onClose={() => setHistoryQueueId(null)} /> : null}
+      {deletingQueue ? (
+        <QueueDeleteDialog
+          label={queueLabel(deletingQueue, data?.codexThreads ?? [])}
+          waitingCount={(data?.todos ?? []).filter((todo) => todo.queueId === deletingQueue.id && todo.status === "ready").length}
+          busy={mutatingId === `queue:${deletingQueue.id}`}
+          onClose={() => setDeletingQueue(null)}
+          onConfirm={() => void removeQueue(deletingQueue)}
+        />
+      ) : null}
     </main>
   );
 }
@@ -357,12 +394,12 @@ function TodoComposerSheet({ projects, queues, threads, selectedProjectId, onClo
           </div> : null}
         </div>
         <div className="composerActions">
-          <button className="secondaryButton" type="button" disabled={busy || !title.trim()} onClick={() => void add(false)}>创建</button>
+          <button className="secondaryButton" type="button" disabled={busy || !title.trim()} onClick={() => void add(false)}>仅保存</button>
           <button className="primaryButton" type="button" disabled={busy || !title.trim() || !queueId} onClick={() => void add(true)}>
-            {busy ? <LoaderCircle className="spin" size={16} /> : <Play size={15} />}创建并排队
+            {busy ? <LoaderCircle className="spin" size={16} /> : <Play size={15} />}发送到 Codex
           </button>
         </div>
-        <p className="composerHint">⌘ Enter 快速提交</p>
+        <p className="composerHint">⌘ Enter 发送到所选队列</p>
       </section>
     </div>
   );
@@ -384,11 +421,11 @@ function droppedTodoId(event: React.DragEvent): string {
   return event.dataTransfer.getData(TODO_DRAG_TYPE) || event.dataTransfer.getData("text/plain");
 }
 
-function QueueBoard({ projects, queues, threads, todos, showProject, busy, onQueue, onMoveToPool, onHistory }: { projects: Project[]; queues: Queue[]; threads: CodexThread[]; todos: Todo[]; showProject: boolean; busy: boolean; onQueue: (todo: Todo, queueId: string, beforeTodoId?: string | null) => Promise<void>; onMoveToPool: (todo: Todo) => Promise<void>; onHistory: (queueId: string) => void }) {
+function QueueBoard({ projects, queues, threads, todos, showProject, busy, onQueue, onMoveToPool, onHistory, onDelete }: { projects: Project[]; queues: Queue[]; threads: CodexThread[]; todos: Todo[]; showProject: boolean; busy: boolean; onQueue: (todo: Todo, queueId: string, beforeTodoId?: string | null) => Promise<void>; onMoveToPool: (todo: Todo) => Promise<void>; onHistory: (queueId: string) => void; onDelete: (queue: Queue) => void }) {
   return (
     <section className="queueBoard" aria-labelledby="queueTitle">
       <header className="workflowHeader">
-        <div><h2 id="queueTitle">执行队列</h2><span>拖动 Todo 插入任意一节</span></div>
+        <div><h2 id="queueTitle">执行队列</h2><span>拖动 Todo 排入队列</span></div>
       </header>
       <div className="queueLanes">
         {projects.map((project) => {
@@ -396,7 +433,7 @@ function QueueBoard({ projects, queues, threads, todos, showProject, busy, onQue
           return (
             <div className="projectQueueGroup" key={project.id}>
               {showProject ? <div className="queueProject"><span>{project.name}</span><em>{projectQueues.length} 个队列</em></div> : null}
-              {projectQueues.length ? projectQueues.map((queue) => <QueueLane key={queue.id} queue={queue} threads={threads} active={todos.find((todo) => todo.queueId === queue.id && (todo.status === "sending" || todo.status === "running")) ?? null} queued={todos.filter((todo) => todo.queueId === queue.id && todo.status === "ready")} completed={todos.filter((todo) => todo.queueId === queue.id && todo.status === "completed")} allTodos={todos} busy={busy} onQueue={onQueue} onMoveToPool={onMoveToPool} onHistory={onHistory} />) : <div className="queueEmpty">还没有队列</div>}
+              {projectQueues.length ? projectQueues.map((queue) => <QueueLane key={queue.id} queue={queue} threads={threads} active={todos.find((todo) => todo.queueId === queue.id && (todo.status === "sending" || todo.status === "running")) ?? null} queued={todos.filter((todo) => todo.queueId === queue.id && todo.status === "ready")} completed={todos.filter((todo) => todo.queueId === queue.id && todo.status === "completed")} allTodos={todos} busy={busy} onQueue={onQueue} onMoveToPool={onMoveToPool} onHistory={onHistory} onDelete={onDelete} />) : <div className="queueEmpty">还没有队列</div>}
             </div>
           );
         })}
@@ -405,8 +442,9 @@ function QueueBoard({ projects, queues, threads, todos, showProject, busy, onQue
   );
 }
 
-function QueueLane({ queue, threads, active, queued, completed, allTodos, busy, onQueue, onMoveToPool, onHistory }: { queue: Queue; threads: CodexThread[]; active: Todo | null; queued: Todo[]; completed: Todo[]; allTodos: Todo[]; busy: boolean; onQueue: (todo: Todo, queueId: string, beforeTodoId?: string | null) => Promise<void>; onMoveToPool: (todo: Todo) => Promise<void>; onHistory: (queueId: string) => void }) {
+function QueueLane({ queue, threads, active, queued, completed, allTodos, busy, onQueue, onMoveToPool, onHistory, onDelete }: { queue: Queue; threads: CodexThread[]; active: Todo | null; queued: Todo[]; completed: Todo[]; allTodos: Todo[]; busy: boolean; onQueue: (todo: Todo, queueId: string, beforeTodoId?: string | null) => Promise<void>; onMoveToPool: (todo: Todo) => Promise<void>; onHistory: (queueId: string) => void; onDelete: (queue: Queue) => void }) {
   const [dropBefore, setDropBefore] = useState<string | null | undefined>(undefined);
+  const isIdle = !active && queued.length === 0;
   const acceptDrop = (event: React.DragEvent, beforeTodoId: string | null) => {
     event.preventDefault();
     if (busy) return;
@@ -416,42 +454,36 @@ function QueueLane({ queue, threads, active, queued, completed, allTodos, busy, 
     void onQueue(todo, queue.id, beforeTodoId);
   };
   return (
-    <div className="queueLane">
-      <div className="queueLaneHeader"><MessageSquareText size={14} /><strong>{queueLabel(queue, threads)}</strong><span>{queued.length + (active ? 1 : 0)}</span></div>
-      <div className={active || queued.length ? "train hasItems" : "train empty"} aria-label={`${queueLabel(queue, threads)} 执行队列`}>
-        <div className={active ? "trainHead running" : "trainHead idle"}>
-          <Zap size={17} />
-          <span className="queueTooltip" role="tooltip">
-            <strong>{active?.title ?? "等待下一项"}</strong>
-            <small>{active ? "正在执行" : "队列空闲"}</small>
-          </span>
-        </div>
-        {active ? <span className="trainCoupler active" /> : null}
+    <div className={`queueLane${isIdle ? " idleLane" : " activeLane"}`}>
+      <div className="queueLaneHeader">
+        <span className="queueThreadLink"><MessageSquareText size={14} /><strong>{queueLabel(queue, threads)}</strong></span>
+        <span className="queueCount">{queued.length + (active ? 1 : 0)}</span>
+        <button
+          className="queueDeleteButton"
+          type="button"
+          disabled={busy || Boolean(active)}
+          aria-label={active ? "队列正在执行，暂不能删除" : `删除队列 ${queueLabel(queue, threads)}`}
+          title={active ? "执行结束后可删除" : "删除队列"}
+          onClick={() => onDelete(queue)}
+        >
+          <Trash2 size={13} />
+        </button>
+      </div>
+      <div className="queueTrack" aria-label={`${queueLabel(queue, threads)} 执行队列`}>
+        {active ? <QueueCard todo={active} tone="running" busy={busy} order={0} onMoveToPool={onMoveToPool} /> : null}
         {queued.map((todo, index) => (
-          <div className="trainUnit" key={todo.id}>
+          <Fragment key={todo.id}>
             <QueueDropSlot
               active={dropBefore === todo.id}
               onEnter={() => setDropBefore(todo.id)}
               onDrop={(event) => acceptDrop(event, todo.id)}
             />
-            <button
-              className="queueCar"
-              type="button"
-              draggable={!busy}
-              aria-label={`${todo.title}，队列第 ${index + 1} 项`}
-              onDragStart={(event) => dragTodo(event, todo)}
-              onDoubleClick={() => void onMoveToPool(todo)}
-            >
-              <GripVertical size={13} />
-              <span>{index + 1}</span>
-              <span className="queueTooltip" role="tooltip"><strong>{todo.title}</strong><small>双击移出队列</small></span>
-            </button>
-            <span className="trainCoupler" />
-          </div>
+            <QueueCard todo={todo} tone="queued" busy={busy} order={index + 1} onMoveToPool={onMoveToPool} />
+          </Fragment>
         ))}
         <QueueDropSlot
           active={dropBefore === null}
-          empty={!queued.length}
+          empty={isIdle}
           onEnter={() => setDropBefore(null)}
           onDrop={(event) => acceptDrop(event, null)}
         />
@@ -459,6 +491,49 @@ function QueueLane({ queue, threads, active, queued, completed, allTodos, busy, 
       </div>
     </div>
   );
+}
+
+function QueueDeleteDialog({ label, waitingCount, busy, onClose, onConfirm }: { label: string; waitingCount: number; busy: boolean; onClose: () => void; onConfirm: () => void }) {
+  return (
+    <div className="sheetBackdrop confirmBackdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
+      <section className="confirmDialog" role="alertdialog" aria-modal="true" aria-labelledby="queueDeleteTitle" aria-describedby="queueDeleteDescription">
+        <span className="confirmIcon"><Trash2 size={18} /></span>
+        <h2 id="queueDeleteTitle">删除队列？</h2>
+        <p id="queueDeleteDescription">
+          “{label}”会从项目中移除。{waitingCount ? `${waitingCount} 个待执行 Todo 会退回列表；` : ""}对应的 Codex 对话不会被删除。
+        </p>
+        <div className="confirmActions">
+          <button className="secondaryButton" type="button" disabled={busy} onClick={onClose}>取消</button>
+          <button className="dangerButton" type="button" disabled={busy} onClick={onConfirm}>
+            {busy ? <LoaderCircle className="spin" size={15} /> : <Trash2 size={15} />}删除
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function QueueCard({ todo, tone, busy, order, onMoveToPool }: { todo: Todo; tone: "running" | "queued"; busy: boolean; order: number; onMoveToPool: (todo: Todo) => Promise<void> }) {
+  return (
+    <button
+      className={`queueCard ${tone}`}
+      type="button"
+      draggable={!busy}
+      aria-label={`${todo.title}${tone === "running" ? "，正在执行" : `，队列第 ${order} 项`}`}
+      onDragStart={(event) => dragTodo(event, todo)}
+      onDoubleClick={() => void onMoveToPool(todo)}
+    >
+      <span>{tone === "running" ? <LoaderCircle className="spin" size={13} /> : order}</span>
+      <span className="queueTooltip" role="tooltip"><strong>{todo.title}</strong><small>{tone === "running" ? "正在执行" : "双击移出队列"}</small></span>
+    </button>
+  );
+}
+
+function todoErrorMessage(error: string): string {
+  if (/paginated_threads is not supported yet/i.test(error)) return "当前 Codex 版本暂不支持恢复这个对话";
+  if (/thread not found/i.test(error)) return "关联对话已不可用，请新建队列对话后重试";
+  if (/project.*unique|unique constraint.*projects/i.test(error)) return "同名项目已存在，请直接选择已有项目";
+  return "执行未完成，请检查关联对话后重试";
 }
 
 function QueueDropSlot({ active, empty, onEnter, onDrop }: { active: boolean; empty?: boolean; onEnter: () => void; onDrop: (event: React.DragEvent) => void }) {
@@ -495,12 +570,12 @@ function TodoPool({ todos, allTodos, projects, queues, showProject, mutatingId, 
             const busy = mutatingId === todo.id;
             return (
               <article className={`poolTodo${todo.status === "failed" ? " failed" : ""}`} key={todo.id} draggable={!busy} onDragStart={(event) => dragTodo(event, todo)}>
-                <GripVertical className="poolGrip" size={16} />
                 <div className="poolCopy">
                   <h3>{todo.title}</h3>
-                  {todo.description ? <p>{todo.description}</p> : null}
-                  {todo.lastError ? <p className="todoError">{todo.lastError}</p> : null}
-                  {showProject ? <span className="projectName"><Folder size={11} />{project?.name ?? "未分项目"}</span> : null}
+                  <div className="poolMeta">
+                    {todo.lastError ? <span className="todoError" title={todo.lastError}><CircleAlert size={13} />{todoErrorMessage(todo.lastError)}</span> : todo.description ? <span className="poolDescription" title={todo.description}>{todo.description}</span> : null}
+                    {showProject ? <span className="projectName"><Folder size={11} />{project?.name ?? "未分项目"}</span> : null}
+                  </div>
                 </div>
                 <div className="poolActions">
                   <button className="queueTodoButton" type="button" disabled={busy || projectQueues.length !== 1} aria-label={projectQueues.length === 1 ? `将 ${todo.title} 加入队列` : "请拖到目标队列"} onClick={() => { if (projectQueues[0]) void onQueue(todo, projectQueues[0].id); }}>
