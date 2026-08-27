@@ -62,6 +62,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   if (path === "/api/queues" && request.method === "POST") return send(response, 201, await service.createQueue(await jsonBody(request) as CreateQueueInput));
   const laneMatch = path.match(/^\/api\/queues\/([^/]+)$/);
   if (laneMatch && request.method === "PATCH") return send(response, 200, service.updateQueue(laneMatch[1]!, await jsonBody(request)));
+  if (laneMatch && request.method === "DELETE") return send(response, 200, service.deleteQueue(laneMatch[1]!));
   const laneDispatchMatch = path.match(/^\/api\/queues\/([^/]+)\/dispatch$/);
   if (laneDispatchMatch && request.method === "POST") return send(response, 202, service.startQueue(laneDispatchMatch[1]!));
 

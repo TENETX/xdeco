@@ -103,6 +103,7 @@ export class CodexAppServer {
   private readonly turnText = new Map<string, string>();
   private readonly finishedTurns = new Map<string, TurnSnapshot>();
   private readonly turnWaiters = new Map<string, Array<(value: TurnSnapshot) => void>>();
+  private readonly loadedThreads = new Set<string>();
   private startPromise: Promise<void> | null = null;
 
   async available(): Promise<boolean> {
@@ -134,6 +135,7 @@ export class CodexAppServer {
     child.stderr.on("data", (chunk) => process.stderr.write(`[codex app-server] ${chunk}`));
     child.on("exit", (code) => {
       this.child = null;
+      this.loadedThreads.clear();
       const error = new Error(`codex app-server exited with code ${code ?? "unknown"}`);
       for (const request of this.pending.values()) request.reject(error);
       this.pending.clear();
@@ -180,6 +182,19 @@ export class CodexAppServer {
 
     if (typeof message.method !== "string") return;
     const params = (message.params ?? {}) as JsonObject;
+    if (message.method === "thread/started") {
+      const thread = (params.thread ?? {}) as JsonObject;
+      if (typeof thread.id === "string") this.loadedThreads.add(thread.id);
+    }
+    if (message.method === "thread/closed") {
+      const threadId = typeof params.threadId === "string" ? params.threadId : null;
+      if (threadId) this.loadedThreads.delete(threadId);
+    }
+    if (message.method === "thread/status/changed") {
+      const threadId = typeof params.threadId === "string" ? params.threadId : null;
+      const status = (params.status ?? {}) as JsonObject;
+      if (threadId && status.type === "notLoaded") this.loadedThreads.delete(threadId);
+    }
     if (message.method === "item/completed") {
       const turnId = typeof params.turnId === "string" ? params.turnId : null;
       const item = (params.item ?? {}) as JsonObject;
@@ -224,11 +239,14 @@ export class CodexAppServer {
 
   async startThread(params: JsonObject): Promise<string> {
     const result = await this.request<{ thread: { id: string } }>("thread/start", params);
+    this.loadedThreads.add(result.thread.id);
     return result.thread.id;
   }
 
   async resumeThread(threadId: string): Promise<void> {
+    if (this.loadedThreads.has(threadId)) return;
     await this.request("thread/resume", { threadId });
+    this.loadedThreads.add(threadId);
   }
 
   async listThreads(limit = 100): Promise<CodexThread[]> {

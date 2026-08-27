@@ -91,6 +91,62 @@ test("queues a Todo at an exact insertion point", () => {
   database.close();
 });
 
+test("deletes an idle queue and returns its waiting Todos to the pool", () => {
+  const database = new XdecoDatabase(":memory:");
+  const project = database.createProject("project_delete_queue", {
+    name: "Delete queue",
+    rootPath: "/workspace/delete-queue",
+    targetThreadId: "thread_delete_queue",
+    autoDispatch: false,
+  });
+  const queue = database.listQueues(project.id)[0]!;
+  const waiting = database.createTodo("todo_waiting_delete", {
+    title: "Waiting",
+    projectId: project.id,
+    queueId: queue.id,
+    status: "ready",
+  });
+  const completed = database.createTodo("todo_completed_delete", {
+    title: "Completed",
+    projectId: project.id,
+    queueId: queue.id,
+    status: "completed",
+  });
+
+  assert.equal(database.deleteQueue(queue.id)?.id, queue.id);
+  assert.equal(database.getQueue(queue.id), null);
+  assert.deepEqual(
+    { status: database.getTodo(waiting.id)?.status, queueId: database.getTodo(waiting.id)?.queueId },
+    { status: "draft", queueId: null },
+  );
+  assert.deepEqual(
+    { status: database.getTodo(completed.id)?.status, queueId: database.getTodo(completed.id)?.queueId },
+    { status: "completed", queueId: null },
+  );
+  database.close();
+});
+
+test("does not delete a queue while one of its Todos is active", () => {
+  const database = new XdecoDatabase(":memory:");
+  const project = database.createProject("project_active_queue", {
+    name: "Active queue",
+    rootPath: "/workspace/active-queue",
+    targetThreadId: "thread_active_queue",
+    autoDispatch: false,
+  });
+  const queue = database.listQueues(project.id)[0]!;
+  database.createTodo("todo_active_queue", {
+    title: "Running",
+    projectId: project.id,
+    queueId: queue.id,
+    status: "running",
+  });
+
+  assert.throws(() => database.deleteQueue(queue.id), /Cannot delete a Queue/);
+  assert.equal(database.getQueue(queue.id)?.id, queue.id);
+  database.close();
+});
+
 test("imports legacy rows without modifying the legacy database", async (context) => {
   const directory = await mkdtemp(join(tmpdir(), "xdeco-import-"));
   context.after(() => rm(directory, { recursive: true, force: true }));

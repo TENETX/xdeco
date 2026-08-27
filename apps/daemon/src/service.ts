@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
 import type {
   CaptureResult,
   CreateProjectInput,
@@ -41,6 +42,25 @@ function requireText(value: unknown, name: string): string {
   return value.trim();
 }
 
+function escapeDelegationText(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+export function todoTurnInput(text: string, sourceThreadId: string | null, targetThreadId: string): string {
+  if (!sourceThreadId || sourceThreadId === targetThreadId) return text;
+  return `<codex_delegation>\n  <source_thread_id>${escapeDelegationText(sourceThreadId)}</source_thread_id>\n  <input>${escapeDelegationText(text)}</input>\n</codex_delegation>`;
+}
+
+export function visibleTodoInput(
+  text: string,
+  marker: string,
+): string {
+  return `${text}\n<!-- ${marker} -->`;
+}
+
 interface CodexCatalogSnapshot {
   projects: Awaited<ReturnType<ProjectCatalog["list"]>>;
   threads: Awaited<ReturnType<ThreadCatalog["list"]>>;
@@ -57,6 +77,7 @@ export class XdecoService {
     readonly codex = new CodexAppServer(),
     readonly projectCatalog: ProjectCatalog = new CodexProjectCatalog(),
     readonly threadCatalog: ThreadCatalog = new CodexThreadCatalog(),
+    readonly sourceThreadId = process.env.CODEX_THREAD_ID ?? process.env.CODEX_SESSION_ID ?? null,
   ) {
     this.restoreActiveQueues();
   }
@@ -149,21 +170,19 @@ export class XdecoService {
     const project = this.getProject(input.projectId);
     let targetThreadId = input.targetThreadId ?? null;
     if (!targetThreadId) {
-      targetThreadId = await this.codex.startThread({
-        model: EXECUTION_MODEL,
-        cwd: project.rootPath,
-        approvalPolicy: "on-request",
-        approvalsReviewer: "auto_review",
-        permissions: ":workspace",
-        serviceName: "xdeco_queue",
-      });
-      await this.codex.request("thread/name/set", { threadId: targetThreadId, name: `${project.name} · 队列` });
+      targetThreadId = await this.createExecutionThread(project, input.name ?? `${project.name} · 队列`, "xdeco_queue");
     }
     return this.database.createQueue(randomUUID(), { ...input, targetThreadId });
   }
 
   updateQueue(id: string, input: Partial<Omit<CreateQueueInput, "projectId">>): Queue {
     const queue = this.database.updateQueue(id, input);
+    if (!queue) throw new Error("Queue not found");
+    return queue;
+  }
+
+  deleteQueue(id: string): Queue {
+    const queue = this.database.deleteQueue(id);
     if (!queue) throw new Error("Queue not found");
     return queue;
   }
@@ -203,7 +222,10 @@ export class XdecoService {
     }
   }
 
-  addTodo(input: CreateTodoInput & { projectName?: string | null }): { todo: Todo; dispatchStarted: boolean } {
+  addTodo(
+    input: CreateTodoInput & { projectName?: string | null },
+    options: { dispatch?: boolean } = {},
+  ): { todo: Todo; dispatchStarted: boolean } {
     const projectId = this.resolveProject(input.projectId, input.projectName);
     const status = input.status ?? "draft";
     const queueId = input.queueId ?? null;
@@ -217,9 +239,127 @@ export class XdecoService {
       queueId: queue?.id ?? null,
       status,
     });
-    const dispatchStarted = status === "ready" && Boolean(queue && this.getProject(queue.projectId).autoDispatch);
+    const dispatchStarted = options.dispatch !== false
+      && status === "ready"
+      && Boolean(queue && this.getProject(queue.projectId).autoDispatch);
     if (dispatchStarted && queue) this.kick(queue.id);
     return { todo, dispatchStarted };
+  }
+
+  createCurrentTodo(input: Omit<CreateTodoInput, "status">): {
+    todo: Todo;
+    marker: string;
+    payload: string;
+    prompt: string;
+    targetThreadId: string;
+    relayed: boolean;
+  } {
+    if (!input.projectId) throw new Error("Project is required");
+    const project = this.getProject(input.projectId);
+    if (project.autoDispatch) this.updateProject(project.id, { autoDispatch: false });
+    const todo = this.addTodo({ ...input, status: "ready" }, { dispatch: false }).todo;
+    return this.prepareCurrentTodo(todo.id);
+  }
+
+  prepareCurrentTodo(id: string): {
+    todo: Todo;
+    marker: string;
+    payload: string;
+    prompt: string;
+    targetThreadId: string;
+    relayed: boolean;
+  } {
+    const todo = this.getTodo(id);
+    if (todo.status !== "ready") throw new Error("Only queued Todos can be sent");
+    if (!todo.queueId) throw new Error("Todo has no Queue");
+    const queue = this.getQueue(todo.queueId);
+    if (!queue.targetThreadId) throw new Error("Queue is not bound to a Codex task");
+    const marker = `xdeco:todo=${todo.id};run=${randomUUID()}`;
+    const query = todo.description ? `${todo.title}\n\n${todo.description}` : todo.title;
+    const payload = visibleTodoInput(query, marker);
+    const relayed = Boolean(this.sourceThreadId && this.sourceThreadId !== queue.targetThreadId);
+    const prompt = relayed
+      ? [
+          `请使用 Codex 的 send_message_to_thread 工具，把下面 payload 原样发送到 task ${queue.targetThreadId}。`,
+          "不要在当前 task 执行，不要改写、概括或补充 payload；发送成功后只需简短确认。",
+          "",
+          payload,
+        ].join("\n")
+      : payload;
+    return { todo, marker, payload, prompt, targetThreadId: queue.targetThreadId, relayed };
+  }
+
+  async registerCurrentTodo(id: string, marker: string): Promise<{ todo: Todo; run: TodoRun }> {
+    const todo = this.getTodo(id);
+    if (!todo.projectId || !todo.queueId) throw new Error("Todo has no Queue");
+    if (!marker.startsWith(`xdeco:todo=${todo.id};run=`)) throw new Error("Invalid Todo marker");
+    const queue = this.getQueue(todo.queueId);
+    if (!queue.targetThreadId) throw new Error("Queue is not bound to a Codex task");
+    const matchedTurn = await this.codex.findTurnContainingUserText(queue.targetThreadId, marker, 30_000);
+    if (!matchedTurn) {
+      throw new Error("The visible message was not found in the Queue-bound Codex task");
+    }
+    const existingRun = this.database.getRunByTurn(matchedTurn.id);
+    if (existingRun) return { todo: this.getTodo(id), run: existingRun };
+    if (todo.status !== "ready" && todo.status !== "running") {
+      throw new Error("Todo is no longer queued or running");
+    }
+    const run: TodoRun = {
+      id: randomUUID(),
+      todoId: todo.id,
+      projectId: todo.projectId,
+      queueId: todo.queueId,
+      threadId: queue.targetThreadId,
+      turnId: matchedTurn.id,
+      status: "running",
+      startedAt: new Date().toISOString(),
+      finishedAt: null,
+      error: null,
+    };
+    this.database.createRun(run);
+    const runningTodo = todo.status === "running"
+      ? todo
+      : this.database.updateTodoStatus(todo.id, "running")!;
+    void this.monitorVisibleRun(runningTodo, run);
+    return { todo: runningTodo, run };
+  }
+
+  private async monitorVisibleRun(todo: Todo, run: TodoRun): Promise<void> {
+    try {
+      let finished = await this.codex.readFinishedTurn(run.threadId, run.turnId);
+      while (!finished) {
+        await delay(1_500);
+        finished = await this.codex.readFinishedTurn(run.threadId, run.turnId);
+      }
+      // Cross-task delivery can briefly expose an `interrupted` snapshot while
+      // Codex is transferring ownership of the visible turn. Give that snapshot
+      // time to settle before treating it as the terminal state.
+      if (finished.status !== "completed") {
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+          await delay(500);
+          const settled = await this.codex.readFinishedTurn(run.threadId, run.turnId);
+          if (!settled) continue;
+          finished = settled;
+          if (finished.status === "completed") break;
+        }
+      }
+      if (finished.status !== "completed") {
+        const message = finished.error ?? `Codex turn ${finished.status}`;
+        this.database.updateRunByTurn(run.turnId, finished.status, message);
+        this.database.updateTodoStatus(todo.id, "failed", undefined, message);
+        return;
+      }
+      if (!finished.text) {
+        const result = await this.codex.readTurnResult(run.threadId, run.turnId);
+        finished = { ...finished, text: result.answer };
+      }
+      this.database.updateRunByTurn(run.turnId, "completed", null);
+      this.database.completeTodo(todo.id, run.threadId, run.turnId, finished.text);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.database.updateRunByTurn(run.turnId, "failed", message);
+      this.database.updateTodoStatus(todo.id, "failed", undefined, message);
+    }
   }
 
   createTodo(input: CreateTodoInput): Todo {
@@ -408,17 +548,18 @@ export class XdecoService {
     let queue = this.getQueue(todo.queueId);
     let threadId = queue.targetThreadId;
     if (!threadId) {
-      threadId = await this.codex.startThread({
-        model: EXECUTION_MODEL,
-        cwd: project.rootPath,
-        approvalPolicy: "on-request",
-        approvalsReviewer: "auto_review",
-        permissions: ":workspace",
-        serviceName: "xdeco_dispatch",
-      });
-      await this.codex.request("thread/name/set", { threadId, name: queue.name ?? project.name });
+      threadId = await this.createExecutionThread(project, queue.name ?? project.name, "xdeco_dispatch");
       queue = this.updateQueue(queue.id, { targetThreadId: threadId });
+    } else {
+      try {
+        await this.codex.resumeThread(threadId);
+      } catch (error) {
+        if (!this.isUnresumableThread(error)) throw error;
+        threadId = await this.createExecutionThread(project, queue.name ?? project.name, "xdeco_dispatch_recovery");
+        queue = this.updateQueue(queue.id, { targetThreadId: threadId });
+      }
     }
+    const query = todo.description ? `${todo.title}\n\n${todo.description}` : todo.title;
     const turnId = await this.codex.startTurn({
       threadId,
       cwd: project.rootPath,
@@ -435,7 +576,7 @@ export class XdecoService {
       },
       input: [{
         type: "text",
-        text: todo.description ? `${todo.title}\n\n${todo.description}` : todo.title,
+        text: todoTurnInput(query, this.sourceThreadId, threadId),
       }],
     });
     const run: TodoRun = {
@@ -447,6 +588,24 @@ export class XdecoService {
     const result = await this.codex.waitForTurn(turnId, 24 * 60 * 60 * 1000);
     this.database.updateRunByTurn(turnId, result.status, result.error);
     return { ...result, threadId, turnId };
+  }
+
+  private isUnresumableThread(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    return /paginated_threads is not supported yet|thread not found/i.test(message);
+  }
+
+  private async createExecutionThread(project: Project, name: string, serviceName: string): Promise<string> {
+    const threadId = await this.codex.startThread({
+      model: EXECUTION_MODEL,
+      cwd: project.rootPath,
+      approvalPolicy: "on-request",
+      approvalsReviewer: "auto_review",
+      permissions: ":workspace",
+      serviceName,
+    });
+    await this.codex.request("thread/name/set", { threadId, name });
+    return threadId;
   }
 }
 

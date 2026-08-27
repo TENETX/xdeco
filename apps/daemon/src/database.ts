@@ -423,6 +423,50 @@ export class XdecoDatabase {
     return this.getQueue(id);
   }
 
+  deleteQueue(id: string): Queue | null {
+    const queue = this.getQueue(id);
+    if (!queue) return null;
+
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const active = this.db.prepare(`
+        SELECT 1 FROM todos
+        WHERE queue_id = ? AND status IN ('sending', 'running')
+        LIMIT 1
+      `).get(id);
+      if (active) throw new Error("Cannot delete a Queue while a Todo is sending or running");
+
+      const waiting = this.db.prepare(`
+        SELECT id FROM todos
+        WHERE queue_id = ? AND status = 'ready'
+        ORDER BY position, created_at
+      `).all(id) as Array<{ id: string }>;
+      const nextPoolPosition = this.db.prepare(`
+        SELECT COALESCE(MAX(position), -1) + 1 AS position
+        FROM todos WHERE queue_id IS NULL
+      `).get() as { position: number };
+      const timestamp = now();
+      const returnToPool = this.db.prepare(`
+        UPDATE todos
+        SET queue_id = NULL, status = 'draft', position = ?, updated_at = ?, last_error = NULL
+        WHERE id = ?
+      `);
+      waiting.forEach((todo, index) => returnToPool.run(nextPoolPosition.position + index, timestamp, todo.id));
+
+      this.db.prepare("DELETE FROM queues WHERE id = ?").run(id);
+      const remaining = this.db.prepare(`
+        SELECT id FROM queues WHERE project_id = ? ORDER BY position, created_at
+      `).all(queue.projectId) as Array<{ id: string }>;
+      const updatePosition = this.db.prepare("UPDATE queues SET position = ?, updated_at = ? WHERE id = ?");
+      remaining.forEach((candidate, index) => updatePosition.run(index, timestamp, candidate.id));
+      this.db.exec("COMMIT");
+      return queue;
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
   listTodos(projectId?: string | null, includeArchived = true): Todo[] {
     const clauses: string[] = [];
     const params: SqlValue[] = [];
@@ -573,6 +617,14 @@ export class XdecoDatabase {
         turn_id AS turnId, status, started_at AS startedAt, finished_at AS finishedAt, error
       FROM todo_runs WHERE todo_id = ? ORDER BY started_at DESC LIMIT 1
     `).get(todoId) as unknown as TodoRun | undefined) ?? null;
+  }
+
+  getRunByTurn(turnId: string): TodoRun | null {
+    return (this.db.prepare(`
+      SELECT id, todo_id AS todoId, project_id AS projectId, queue_id AS queueId, thread_id AS threadId,
+        turn_id AS turnId, status, started_at AS startedAt, finished_at AS finishedAt, error
+      FROM todo_runs WHERE turn_id = ? LIMIT 1
+    `).get(turnId) as unknown as TodoRun | undefined) ?? null;
   }
 
   updateRunByTurn(turnId: string, status: TodoRun["status"], error: string | null): void {
